@@ -4,19 +4,18 @@ import { ReactNode } from 'react';
 interface SquareProps {
   row: number;
   col: number;
-  isValidMove: boolean;
-  onClick: () => void;
-  children?: ReactNode;
+  isValidMove?: boolean;
+  isBlackSquare: boolean;
+  children?: React.ReactNode;
+  onClick?: () => void;
 }
 
-export default function Square({ row, col, isValidMove, onClick, children }: SquareProps) {
-  const isDark = (row + col) % 2 === 1;
-
+export default function Square({ row, col, isValidMove, isBlackSquare, onClick, children }: SquareProps) {
   return (
     <div
       onClick={onClick}
       className={`relative aspect-square ${
-        isDark ? 'bg-amber-900' : 'bg-amber-100'
+        isBlackSquare ? 'bg-amber-900' : 'bg-amber-100'
       } flex items-center justify-center cursor-pointer transition-colors hover:opacity-90`}
     >
       {isValidMove && (
