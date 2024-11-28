@@ -17,13 +17,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// Healthcheck endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy' });
+// Healthcheck endpoint - Modificado para ser mais robusto
+app.get(['/health', '/'], async (req, res) => {
+  try {
+    // Verifica se o servidor está funcionando
+    const status = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV,
+      port: PORT
+    };
+    
+    res.status(200).json(status);
+  } catch (error) {
+    console.error('Erro no healthcheck:', error);
+    res.status(500).json({ status: 'unhealthy', error: error.message });
+  }
 });
 
 // CORS configuration

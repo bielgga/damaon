@@ -5,9 +5,10 @@ buildCommand = "npm run build"
 [deploy]
 startCommand = "npm run start"
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 200
 restartPolicy = "on-failure"
 numReplicas = 1
+healthcheckInterval = "30s"
 
 [deploy.envs]
 PORT = "3001"
