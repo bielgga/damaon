@@ -1,5 +1,10 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm run build:server"
 
 [deploy]
 startCommand = "npm run start"
+
+[deploy.envs]
+PORT = "3001"
+FRONTEND_URL = "https://damaon.netlify.app"
