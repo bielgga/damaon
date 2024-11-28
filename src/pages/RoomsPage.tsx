@@ -5,6 +5,7 @@ import { Users, Clock, Plus, Search, Crown, ArrowLeft } from 'lucide-react';
 import { socketService } from '../services/socket';
 import { useGameStore } from '../store/gameStore';
 import { Room } from '../types/game';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function RoomsPage() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function RoomsPage() {
   const [search, setSearch] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<'all' | 'waiting' | 'playing'>('all');
+  const notifications = useNotifications();
 
   useEffect(() => {
     if (!playerName) {
@@ -33,13 +35,26 @@ export default function RoomsPage() {
   }, [navigate, playerName]);
 
   const handleCreateRoom = async () => {
-    if (!playerName) return;
+    if (!playerName) {
+      notifications.addNotification('error', 'Nome do jogador não definido');
+      return;
+    }
+
     setIsCreating(true);
     try {
+      console.log('Iniciando criação de sala para:', playerName);
       const room = await socketService.createRoom(playerName);
-      navigate(`/sala/${room.id}`);
+      console.log('Sala criada:', room);
+      
+      if (room && room.id) {
+        console.log('Redirecionando para sala:', room.id);
+        navigate(`/sala/${room.id}`, { replace: true });
+      } else {
+        throw new Error('ID da sala não encontrado');
+      }
     } catch (error) {
       console.error('Erro ao criar sala:', error);
+      notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');
     } finally {
       setIsCreating(false);
     }
@@ -48,7 +63,7 @@ export default function RoomsPage() {
   const handleJoinRoom = (roomId: string) => {
     if (!playerName) return;
     socketService.joinRoom(roomId, playerName);
-    navigate(`/sala/${roomId}`);
+    navigate(`/sala/${roomId}`, { replace: true });
   };
 
   const filteredRooms = availableRooms
@@ -151,6 +166,7 @@ export default function RoomsPage() {
               key={room.id}
               room={room}
               onJoin={handleJoinRoom}
+              currentPlayerName={playerName}
             />
           ))}
 
@@ -187,9 +203,10 @@ export default function RoomsPage() {
 interface RoomCardProps {
   room: Room;
   onJoin: (roomId: string) => void;
+  currentPlayerName: string | null;
 }
 
-function RoomCard({ room, onJoin }: RoomCardProps) {
+function RoomCard({ room, onJoin, currentPlayerName }: RoomCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -239,17 +256,25 @@ function RoomCard({ room, onJoin }: RoomCardProps) {
           {Array(2 - room.players.length).fill(null).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="w-10 h-10 rounded-full bg-slate-800/50"
-            />
+              className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-sm text-slate-400"
+            >
+              ?
+            </div>
           ))}
         </div>
 
         <button
           onClick={() => onJoin(room.id)}
-          disabled={room.status !== 'waiting' || room.players.length >= 2}
+          disabled={room.status !== 'waiting' || 
+                   room.players.length >= 2 || 
+                   room.players.some(p => p.name === currentPlayerName)}
           className="w-full btn-primary disabled:bg-slate-700"
         >
-          {room.status === 'waiting' ? 'Entrar na Sala' : 'Sala Cheia'}
+          {room.status === 'waiting' 
+            ? room.players.some(p => p.name === currentPlayerName)
+              ? 'Você está nesta sala'
+              : 'Entrar na Sala'
+            : 'Sala Cheia'}
         </button>
 
         <div className="text-center text-sm text-slate-500">

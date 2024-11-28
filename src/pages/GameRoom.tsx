@@ -7,11 +7,13 @@ import { useGameStore } from '../store/gameStore';
 import { socketService } from '../services/socket';
 import { ArrowLeft, Crown, Users } from 'lucide-react';
 import { Room, RoomPlayer } from '../types/game';
+import { useNotifications } from '../components/Notifications';
 
 export default function GameRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { currentRoom, playerName, setRoomData } = useGameStore();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!roomId || !playerName) {
@@ -21,55 +23,50 @@ export default function GameRoom() {
 
     console.log('Inicializando GameRoom:', { roomId, playerName });
     
-    // Conecta ao socket e configura os listeners
     const socket = socketService.connect();
 
     const handleRoomJoined = (room: Room) => {
       console.log('Room joined:', room);
       setRoomData(room);
+      setIsLoading(false);
     };
 
     const handleGameStarted = (room: Room) => {
       console.log('Game started:', room);
+      if (room.gameData?.pieces) {
+        console.log('Peças iniciais:', room.gameData.pieces);
+      }
       setRoomData(room);
-    };
-
-    const handleError = (error: any) => {
-      console.error('Socket error:', error);
-      navigate('/salas');
+      setIsLoading(false);
     };
 
     socket?.on('roomJoined', handleRoomJoined);
     socket?.on('gameStarted', handleGameStarted);
-    socket?.on('error', handleError);
+    socket?.on('roomCreated', handleRoomJoined);
 
     // Tenta entrar na sala apenas se não estiver nela
     if (!currentRoom || currentRoom.id !== roomId) {
       socketService.joinRoom(roomId, playerName);
+    } else {
+      setIsLoading(false);
     }
 
-    return () => {
-      socket?.off('roomJoined', handleRoomJoined);
-      socket?.off('gameStarted', handleGameStarted);
-      socket?.off('error', handleError);
-      if (currentRoom?.id === roomId) {
-        socketService.leaveRoom(roomId);
-      }
-    };
-  }, [roomId, playerName, navigate, setRoomData]);
-
-  // Loading state com timeout
-  const [isLoading, setIsLoading] = useState(true);
-  useEffect(() => {
+    // Timeout para caso a sala não carregue
     const timeout = setTimeout(() => {
       if (!currentRoom) {
+        useNotifications().addNotification('error', 'Não foi possível carregar a sala');
         navigate('/salas');
       }
       setIsLoading(false);
     }, 5000);
 
-    return () => clearTimeout(timeout);
-  }, [currentRoom, navigate]);
+    return () => {
+      socket?.off('roomJoined', handleRoomJoined);
+      socket?.off('gameStarted', handleGameStarted);
+      socket?.off('roomCreated', handleRoomJoined);
+      clearTimeout(timeout);
+    };
+  }, [roomId, playerName, navigate, setRoomData, currentRoom]);
 
   if (isLoading || !currentRoom) {
     return (
@@ -177,19 +174,23 @@ function PlayerCard({ player, isCurrentTurn }: PlayerCardProps) {
     >
       <div className="flex flex-col items-center gap-4">
         <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold
-          ${player.color === 'red' 
-            ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white' 
-            : 'bg-slate-800 text-slate-300'}`}
+          ${player ? (
+            player.color === 'red' 
+              ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white' 
+              : 'bg-slate-800 text-slate-300'
+          ) : 'bg-slate-800/50 text-slate-400'}`}
         >
-          {player.name[0].toUpperCase()}
+          {player ? player.name[0].toUpperCase() : '?'}
         </div>
         <div className="text-center">
-          <p className="font-medium">{player.name}</p>
+          <p className="font-medium">
+            {player ? player.name : 'Aguardando Jogador'}
+          </p>
           <p className="text-sm text-gray-400">
-            {player.color === 'red' ? 'Vermelho' : 'Preto'}
+            {player ? (player.color === 'red' ? 'Vermelho' : 'Preto') : '...'}
           </p>
         </div>
-        {isCurrentTurn && (
+        {isCurrentTurn && player && (
           <div className="flex items-center gap-2 text-indigo-400">
             <Crown className="w-5 h-5" />
             <span className="text-sm">Sua vez</span>

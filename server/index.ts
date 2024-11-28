@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room, Piece, PlayerColor, PieceType, Position } from '../shared/types';
+import { Room, Piece, PlayerColor, PieceType, Position, GameData } from '../shared/types';
 
 dotenv.config();
 
@@ -86,7 +86,7 @@ io.on('connection', (socket) => {
     socket.emit('availableRooms', activeRooms);
   });
 
-  socket.on('createRoom', async ({ playerName }) => {
+  socket.on('createRoom', async ({ playerName }, callback) => {
     try {
       logWithTimestamp('Recebida solicitação de criação de sala:', { 
         playerName,
@@ -114,16 +114,24 @@ io.on('connection', (socket) => {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       logWithTimestamp('Gerando nova sala:', { roomId });
 
-      // Cria a sala com apenas o jogador vermelho
+      // Inicializa o estado do jogo com as peças
+      const gameData: GameData = {
+        pieces: initializeBoard(),
+        currentPlayer: 'red' as PlayerColor,
+        scores: { red: 0, black: 0 }
+      };
+
+      // Cria a sala com o jogador e o estado inicial do jogo
       const room: Room = {
         id: roomId,
         name: `Sala de ${playerName}`,
         players: [{
           id: socket.id,
           name: playerName,
-          color: 'red' // Primeiro jogador sempre será vermelho
+          color: 'red' as PlayerColor
         }],
         status: 'waiting',
+        gameData,
         lastActivity: Date.now(),
         createdAt: Date.now()
       };
@@ -139,6 +147,12 @@ io.on('connection', (socket) => {
         roomsCount: rooms.size
       });
       
+      // Envia resposta direta para o callback
+      if (callback) {
+        callback(room);
+      }
+      
+      // Emite o evento para todos
       socket.emit('roomCreated', room);
       io.emit('availableRooms', Array.from(rooms.values()));
 
@@ -148,6 +162,10 @@ io.on('connection', (socket) => {
         playerName,
         socketId: socket.id 
       });
+      
+      if (callback) {
+        callback({ error: 'Erro ao criar sala' });
+      }
       
       socket.emit('error', { 
         code: 'CREATE_ROOM_ERROR',
@@ -159,25 +177,24 @@ io.on('connection', (socket) => {
 
   socket.on('joinRoom', async ({ roomId, playerName }) => {
     try {
-      logWithTimestamp('Recebida solicitação para entrar na sala:', { 
-        roomId, 
-        playerName,
-        socketId: socket.id 
-      });
-      
       const room = rooms.get(roomId);
       if (!room) {
         socket.emit('error', { message: 'Sala não encontrada' });
         return;
       }
 
-      // Verifica se o jogador já está em alguma sala
-      const isInAnyRoom = Array.from(rooms.values()).some(
-        r => r.players.some(p => p.name === playerName || p.id === socket.id)
+      // Verifica se o jogador já está na sala
+      const isAlreadyInRoom = room.players.some(
+        p => p.name === playerName || p.id === socket.id
       );
 
-      if (isInAnyRoom) {
-        socket.emit('error', { message: 'Você já está em uma sala' });
+      if (isAlreadyInRoom) {
+        logWithTimestamp('Jogador já está na sala:', {
+          playerName,
+          roomId,
+          socketId: socket.id
+        });
+        socket.emit('roomJoined', room);
         return;
       }
 
@@ -187,45 +204,27 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Verifica se o jogador está tentando entrar em sua própria sala
-      const isCreator = room.players.some(p => p.name === playerName);
-      if (isCreator) {
-        socket.emit('error', { message: 'Você não pode entrar em sua própria sala' });
-        return;
-      }
-
-      // Adiciona o segundo jogador como preto
-      room.players.push({
+      // Adiciona o jogador como preto (segundo jogador)
+      const newPlayer = {
         id: socket.id,
         name: playerName,
-        color: 'black'
-      });
+        color: 'black' as PlayerColor
+      };
 
+      room.players.push(newPlayer);
       room.lastActivity = Date.now();
-      rooms.set(roomId, room);
-      playerRooms.set(socket.id, roomId);
-      
-      await socket.join(roomId);
-      
-      // Inicia o jogo apenas quando houver dois jogadores diferentes
+
+      // Se agora há dois jogadores, inicia o jogo
       if (room.players.length === 2) {
         room.status = 'playing';
-        room.gameData = {
-          pieces: initializeBoard(),
-          currentPlayer: 'red', // Vermelho sempre começa
-          scores: { red: 0, black: 0 }
-        };
-        
-        logWithTimestamp('Iniciando jogo na sala:', { 
-          roomId,
-          players: room.players 
-        });
-        
         io.to(roomId).emit('gameStarted', room);
       } else {
         io.to(roomId).emit('roomJoined', room);
       }
 
+      await socket.join(roomId);
+      playerRooms.set(socket.id, roomId);
+      rooms.set(roomId, room);
       io.emit('availableRooms', Array.from(rooms.values()));
 
     } catch (error) {
