@@ -114,25 +114,23 @@ io.on('connection', (socket) => {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       logWithTimestamp('Gerando nova sala:', { roomId });
 
-      // Cria a sala
+      // Cria a sala com apenas o jogador vermelho
       const room: Room = {
         id: roomId,
         name: `Sala de ${playerName}`,
         players: [{
           id: socket.id,
           name: playerName,
-          color: 'red'
+          color: 'red' // Primeiro jogador sempre será vermelho
         }],
         status: 'waiting',
         lastActivity: Date.now(),
         createdAt: Date.now()
       };
 
-      // Salva a sala
       rooms.set(roomId, room);
       playerRooms.set(socket.id, roomId);
       
-      // Adiciona o socket à sala
       await socket.join(roomId);
       
       logWithTimestamp('Sala criada com sucesso:', { 
@@ -141,7 +139,6 @@ io.on('connection', (socket) => {
         roomsCount: rooms.size
       });
       
-      // Emite eventos
       socket.emit('roomCreated', room);
       io.emit('availableRooms', Array.from(rooms.values()));
 
@@ -179,7 +176,13 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Adiciona o jogador
+      // Verifica se o jogador já está na sala
+      if (room.players.some(p => p.name === playerName)) {
+        socket.emit('error', { message: 'Você já está nesta sala' });
+        return;
+      }
+
+      // Segundo jogador sempre será preto
       room.players.push({
         id: socket.id,
         name: playerName,
@@ -197,7 +200,7 @@ io.on('connection', (socket) => {
         room.status = 'playing';
         room.gameData = {
           pieces: initializeBoard(),
-          currentPlayer: 'red',
+          currentPlayer: 'red', // Vermelho sempre começa
           scores: { red: 0, black: 0 }
         };
         
@@ -207,9 +210,10 @@ io.on('connection', (socket) => {
         });
         
         io.to(roomId).emit('gameStarted', room);
+      } else {
+        io.to(roomId).emit('roomJoined', room);
       }
-      
-      io.to(roomId).emit('roomJoined', room);
+
       io.emit('availableRooms', Array.from(rooms.values()));
 
     } catch (error) {
