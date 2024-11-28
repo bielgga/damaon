@@ -3,8 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room, RoomPlayer } from './types';
-import { initializeBoard } from '../src/utils/gameLogic';
+import { Room, RoomPlayer, Position } from '../shared/types';
 
 dotenv.config();
 
@@ -128,3 +127,39 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+// Função para inicializar o tabuleiro
+function initializeBoard() {
+  const pieces = [];
+  let id = 1;
+
+  // Função auxiliar para adicionar peças
+  const addPiece = (row: number, col: number, player: 'red' | 'black') => {
+    pieces.push({
+      id: `${player}-${id++}`,
+      player,
+      type: 'normal',
+      position: { row, col }
+    });
+  };
+
+  // Adiciona peças pretas (linhas 0-2)
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        addPiece(row, col, 'black');
+      }
+    }
+  }
+
+  // Adiciona peças vermelhas (linhas 5-7)
+  for (let row = 5; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        addPiece(row, col, 'red');
+      }
+    }
+  }
+
+  return pieces;
+}
