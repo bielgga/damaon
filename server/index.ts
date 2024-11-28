@@ -7,9 +7,12 @@ import { Piece, Room, RoomPlayer } from '../shared/types';
 
 dotenv.config();
 
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://dama-online.netlify.app";
+
 const app = express();
 app.use(cors({
-  origin: '*',
+  origin: FRONTEND_URL,
+  methods: ['GET', 'POST'],
   credentials: true
 }));
 
@@ -20,9 +23,11 @@ app.get('/', (_req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["my-custom-header"],
+    transports: ['websocket', 'polling']
   }
 });
 
@@ -162,4 +167,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`CORS configurado para: ${FRONTEND_URL}`);
 });

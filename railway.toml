@@ -8,5 +8,5 @@ restartPolicy = "always"
 
 [deploy.envs]
 PORT = "3001"
-FRONTEND_URL = "https://damaon.netlify.app"
+FRONTEND_URL = "https://dama-online.netlify.app"
 NODE_ENV = "production"
