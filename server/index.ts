@@ -17,10 +17,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Healthcheck endpoint - Modificado para ser mais robusto
-app.get(['/health', '/'], async (req, res) => {
+// Healthcheck endpoint
+app.get(['/health', '/'], async (_req, res) => {
   try {
-    // Verifica se o servidor está funcionando
     const status = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -162,19 +161,14 @@ io.on('connection', (socket) => {
   });
 });
 
+// Inicia o servidor
 httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`CORS configurado para: ${FRONTEND_URL}`);
   console.log(`Ambiente: ${process.env.NODE_ENV}`);
-});
-
-// Error handling
-httpServer.on('error', (error) => {
-  console.error('Erro no servidor HTTP:', error);
-});
-
-io.on('connect_error', (error) => {
-  console.error('Erro de conexão Socket.IO:', error);
+}).on('error', (err: Error) => {
+  console.error('Erro ao iniciar servidor:', err);
+  process.exit(1);
 });
 
 // Graceful shutdown
@@ -185,3 +179,5 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+export default app;
