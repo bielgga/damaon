@@ -149,6 +149,21 @@ io.on('connection', (socket) => {
   });
 });
 
+// Rota raiz - Adicione antes das outras rotas
+app.get('/', (req, res) => {
+  res.status(200).json({
+    name: 'Damas Online API',
+    status: 'running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      websocket: 'ws://web-production-4161.up.railway.app'
+    },
+    frontend: process.env.FRONTEND_URL,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Inicia o servidor
 const server = httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
