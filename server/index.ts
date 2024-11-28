@@ -3,31 +3,66 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room, RoomPlayer } from '../shared/types';
-import { initializeBoard } from './utils/gameLogic';
+import { Piece, Room, RoomPlayer } from '../shared/types';
 
 dotenv.config();
 
 const app = express();
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "https://damaon.netlify.app",
+  origin: '*',
   credentials: true
 }));
 
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.send('Server is running');
 });
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "https://damaon.netlify.app",
+    origin: '*',
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
 const rooms = new Map<string, Room>();
+
+// Função para inicializar o tabuleiro
+function initializeBoard(): Piece[] {
+  const pieces: Piece[] = [];
+  let id = 1;
+
+  // Função auxiliar para adicionar peças
+  const addPiece = (row: number, col: number, player: 'red' | 'black') => {
+    pieces.push({
+      id: `${player}-${id++}`,
+      player,
+      type: 'normal',
+      position: { row, col }
+    });
+  };
+
+  // Adiciona peças pretas (linhas 0-2)
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        addPiece(row, col, 'black');
+      }
+    }
+  }
+
+  // Adiciona peças vermelhas (linhas 5-7)
+  for (let row = 5; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        addPiece(row, col, 'red');
+      }
+    }
+  }
+
+  return pieces;
+}
 
 io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);

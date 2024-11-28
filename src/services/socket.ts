@@ -17,8 +17,7 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: 1000,
-      transports: ['websocket', 'polling'],
-      withCredentials: true
+      transports: ['websocket', 'polling']
     });
 
     this.setupEventListeners();

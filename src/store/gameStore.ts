@@ -48,6 +48,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameMode: null,
   difficulty: null,
   showGameSelection: false,
+  currentRoom: null,
   setShowGameSelection: (show: boolean) => set({ showGameSelection: show }),
   roomId: null,
   isHost: false,
@@ -241,12 +242,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setAvailableRooms: (rooms) => set({ availableRooms: rooms }),
   
-  setRoomData: (roomData) => set({ 
+  setRoomData: (roomData: Room) => set({ 
     currentRoom: roomData,
     gameMode: 'online'
   }),
 
-  addPlayer: (player) => {
+  addPlayer: (player: RoomPlayer) => {
     const currentRoom = get().currentRoom;
     if (currentRoom) {
       set({
