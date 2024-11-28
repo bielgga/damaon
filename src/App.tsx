@@ -15,6 +15,8 @@ import {
   Timer,
   Sparkles
 } from 'lucide-react';
+import { Notifications, useNotifications } from './components/Notifications';
+import { useEffect } from 'react';
 
 const GAMES = [
   {
@@ -50,7 +52,27 @@ const GAMES = [
 ];
 
 export default function App() {
+  const { notifications, addNotification, dismissNotification } = useNotifications();
   const { initGame, selectPiece, movePiece, gameMode, showGameSelection, setShowGameSelection, goBack, isWaitingPlayer } = useGameStore();
+
+  useEffect(() => {
+    // Exemplo de uso das notificações
+    const handleOnline = () => {
+      addNotification('success', 'Conexão restabelecida');
+    };
+
+    const handleOffline = () => {
+      addNotification('error', 'Conexão perdida');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [addNotification]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const piece = event.active.data.current;
@@ -175,6 +197,10 @@ export default function App() {
 
   return (
     <div className="h-screen overflow-hidden bg-gray-900 text-white">
+      <Notifications 
+        notifications={notifications} 
+        onDismiss={dismissNotification} 
+      />
       <header className="fixed top-0 left-0 right-0 p-6 flex items-center justify-between z-50 bg-gray-800/50 backdrop-blur-md">
         <motion.div
           initial={{ y: -50, opacity: 0 }}

@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../store/gameStore';
+import { useNotifications } from '../components/Notifications';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3002';
 
@@ -7,6 +8,7 @@ class SocketService {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private roomsInterval: NodeJS.Timeout | null = null;
   
   connect() {
     if (this.socket?.connected) return;
@@ -21,6 +23,7 @@ class SocketService {
     });
 
     this.setupEventListeners();
+    this.startRoomsPolling();
   }
 
   private setupEventListeners() {
@@ -29,6 +32,8 @@ class SocketService {
     this.socket.on('connect', () => {
       console.log('Conectado ao servidor');
       this.reconnectAttempts = 0;
+      this.getRooms();
+      useNotifications().addNotification('success', 'Conectado ao servidor');
     });
 
     this.socket.on('connect_error', (error) => {
@@ -37,20 +42,25 @@ class SocketService {
       
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
         console.error('Máximo de tentativas de reconexão atingido');
-        alert('Erro ao conectar ao servidor. Por favor, recarregue a página.');
+        useNotifications().addNotification('error', 'Erro ao conectar ao servidor. Por favor, recarregue a página.');
       }
     });
 
     this.socket.on('roomCreated', (roomData) => {
       useGameStore.getState().setRoomData(roomData);
+      this.getRooms();
+      useNotifications().addNotification('success', 'Sala criada com sucesso');
     });
 
     this.socket.on('roomJoined', (roomData) => {
       useGameStore.getState().setRoomData(roomData);
+      this.getRooms();
+      useNotifications().addNotification('success', 'Entrou na sala com sucesso');
     });
 
     this.socket.on('playerJoined', (player) => {
       useGameStore.getState().addPlayer(player);
+      this.getRooms();
     });
 
     this.socket.on('gameStarted', (gameData) => {
@@ -67,7 +77,22 @@ class SocketService {
 
     this.socket.on('playerDisconnected', (playerId) => {
       useGameStore.getState().handlePlayerDisconnect(playerId);
+      this.getRooms();
     });
+
+    this.socket.on('roomUpdated', () => {
+      this.getRooms();
+    });
+  }
+
+  private startRoomsPolling() {
+    if (this.roomsInterval) {
+      clearInterval(this.roomsInterval);
+    }
+
+    this.roomsInterval = setInterval(() => {
+      this.getRooms();
+    }, 2000);
   }
 
   createRoom(playerName: string) {
@@ -87,6 +112,9 @@ class SocketService {
   }
 
   disconnect() {
+    if (this.roomsInterval) {
+      clearInterval(this.roomsInterval);
+    }
     this.socket?.disconnect();
     this.socket = null;
   }

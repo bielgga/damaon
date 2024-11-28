@@ -2,16 +2,18 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useEffect, useState } from 'react';
 import { socketService } from '../services/socket';
-import { Users, Clock, Plus, Crown } from 'lucide-react';
+import { Users, Clock, Plus, Crown, Search, Copy } from 'lucide-react';
 
 export default function RoomsList() {
   const { availableRooms, playerName, setPlayerName } = useGameStore();
   const [name, setName] = useState('');
+  const [search, setSearch] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     socketService.connect();
     socketService.getRooms();
-    const interval = setInterval(() => socketService.getRooms(), 3000);
+    const interval = setInterval(() => socketService.getRooms(), 2000);
     return () => {
       clearInterval(interval);
       socketService.disconnect();
@@ -32,10 +34,28 @@ export default function RoomsList() {
     e.preventDefault();
     if (name.trim()) {
       setPlayerName(name);
+      localStorage.setItem('playerName', name);
     }
   };
 
+  const copyRoomId = (roomId: string) => {
+    navigator.clipboard.writeText(roomId);
+    setCopied(roomId);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const filteredRooms = availableRooms.filter(room => 
+    room.name.toLowerCase().includes(search.toLowerCase()) ||
+    room.id.toLowerCase().includes(search.toLowerCase())
+  );
+
   if (!playerName) {
+    const savedName = localStorage.getItem('playerName');
+    if (savedName) {
+      setPlayerName(savedName);
+      return null;
+    }
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -78,17 +98,29 @@ export default function RoomsList() {
           <h2 className="text-3xl font-bold">Salas Disponíveis</h2>
           <p className="text-gray-400">Jogando como <span className="text-blue-400 font-medium">{playerName}</span></p>
         </div>
-        <button
-          onClick={handleCreateRoom}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Criar Nova Sala
-        </button>
+        <div className="flex gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar sala..."
+              className="pl-10 pr-4 py-3 bg-gray-700/50 rounded-xl border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          <button
+            onClick={handleCreateRoom}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Criar Nova Sala
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {availableRooms.map((room) => (
+        {filteredRooms.map((room) => (
           <motion.div
             key={room.id}
             whileHover={{ y: -5 }}
@@ -157,7 +189,7 @@ export default function RoomsList() {
           </motion.div>
         ))}
 
-        {availableRooms.length === 0 && (
+        {filteredRooms.length === 0 && (
           <div className="col-span-full text-center py-12">
             <div className="bg-gray-800/50 backdrop-blur-md rounded-2xl p-8 border border-gray-700">
               <h3 className="text-xl font-bold mb-2">Nenhuma sala disponível</h3>
