@@ -9,20 +9,18 @@ export default function Board() {
   const pieces = currentRoom?.gameData?.pieces || [];
   const { setNodeRef } = useDroppable({ id: 'board' });
 
-  console.log('Current pieces:', pieces); // Debug log
-
   return (
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="relative"
+      className="relative w-full max-w-[600px] mx-auto px-4 sm:px-0"
     >
       {/* Board Glow Effect */}
       <div className="absolute inset-0 bg-indigo-500/20 blur-3xl -z-10" />
       
       <div 
         ref={setNodeRef}
-        className="grid grid-cols-8 w-[600px] h-[600px] bg-slate-900 rounded-2xl 
+        className="grid grid-cols-8 aspect-square w-full bg-slate-900 rounded-2xl 
                    overflow-hidden shadow-2xl border border-slate-800/50"
       >
         {Array.from({ length: 64 }, (_, i) => {

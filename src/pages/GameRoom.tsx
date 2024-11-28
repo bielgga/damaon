@@ -8,6 +8,7 @@ import { socketService } from '../services/socket';
 import { ArrowLeft, Crown, Users } from 'lucide-react';
 import { Room, RoomPlayer } from '../types/game';
 import { useNotifications } from '../components/Notifications';
+import clsx from 'clsx';
 
 export default function GameRoom() {
   const { roomId } = useParams();
@@ -33,9 +34,6 @@ export default function GameRoom() {
 
     const handleGameStarted = (room: Room) => {
       console.log('Game started:', room);
-      if (room.gameData?.pieces) {
-        console.log('Peças iniciais:', room.gameData.pieces);
-      }
       setRoomData(room);
       setIsLoading(false);
     };
@@ -44,27 +42,16 @@ export default function GameRoom() {
     socket?.on('gameStarted', handleGameStarted);
     socket?.on('roomCreated', handleRoomJoined);
 
-    // Tenta entrar na sala apenas se não estiver nela
     if (!currentRoom || currentRoom.id !== roomId) {
       socketService.joinRoom(roomId, playerName);
     } else {
       setIsLoading(false);
     }
 
-    // Timeout para caso a sala não carregue
-    const timeout = setTimeout(() => {
-      if (!currentRoom) {
-        useNotifications().addNotification('error', 'Não foi possível carregar a sala');
-        navigate('/salas');
-      }
-      setIsLoading(false);
-    }, 5000);
-
     return () => {
       socket?.off('roomJoined', handleRoomJoined);
       socket?.off('gameStarted', handleGameStarted);
       socket?.off('roomCreated', handleRoomJoined);
-      clearTimeout(timeout);
     };
   }, [roomId, playerName, navigate, setRoomData, currentRoom]);
 
@@ -89,112 +76,131 @@ export default function GameRoom() {
       <div className="absolute inset-0 bg-grid-pattern opacity-5" />
       
       {/* Content */}
-      <div className="relative h-full flex items-center justify-center">
+      <div className="relative h-full flex flex-col">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute top-6 left-0 right-0 px-6 flex items-center justify-between"
+          className="p-4 sm:p-6 flex items-center justify-between"
         >
           <button
             onClick={() => navigate('/salas')}
-            className="flex items-center gap-2 px-4 py-2 glass-panel hover:bg-slate-800/50"
+            className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 glass-panel hover:bg-slate-800/50 text-sm sm:text-base"
           >
-            <ArrowLeft className="w-5 h-5" />
-            Voltar para Salas
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            Voltar
           </button>
 
-          <div className="glass-panel px-6 py-3">
+          <div className="glass-panel px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base">
             {currentRoom.status === 'playing' ? (
               <div className="flex items-center gap-2">
-                <Crown className="w-5 h-5 text-indigo-400" />
+                <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
                 <span>
                   Vez do {currentRoom.gameData?.currentPlayer === 'red' ? 'Vermelho' : 'Preto'}
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-400" />
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
                 <span className="animate-pulse">Aguardando Jogador...</span>
               </div>
             )}
           </div>
         </motion.div>
 
-        {/* Left Player (Red) */}
-        <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="absolute left-8 top-1/2 -translate-y-1/2"
-        >
-          {redPlayer && (
-            <PlayerCard
-              player={redPlayer}
-              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'red'}
-            />
-          )}
-        </motion.div>
+        {/* Players Info - Mobile */}
+        <div className="flex justify-between px-4 py-2 sm:hidden">
+          <PlayerInfo player={redPlayer} isCurrentTurn={currentRoom.gameData?.currentPlayer === 'red'} isMobile />
+          <PlayerInfo player={blackPlayer} isCurrentTurn={currentRoom.gameData?.currentPlayer === 'black'} isMobile />
+        </div>
 
-        {/* Game Board */}
-        <DndContext onDragEnd={handleDragEnd}>
-          <Board />
-        </DndContext>
-
-        {/* Right Player (Black) */}
-        <motion.div
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="absolute right-8 top-1/2 -translate-y-1/2"
-        >
-          {blackPlayer && (
-            <PlayerCard
-              player={blackPlayer}
-              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'black'}
+        {/* Game Area */}
+        <div className="flex-1 flex items-center justify-center px-4">
+          {/* Left Player (Red) - Desktop */}
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="hidden sm:block fixed left-8 top-1/2 -translate-y-1/2"
+          >
+            <PlayerInfo 
+              player={redPlayer} 
+              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'red'} 
             />
-          )}
-        </motion.div>
+          </motion.div>
+
+          {/* Game Board */}
+          <DndContext onDragEnd={handleDragEnd}>
+            <Board />
+          </DndContext>
+
+          {/* Right Player (Black) - Desktop */}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="hidden sm:block fixed right-8 top-1/2 -translate-y-1/2"
+          >
+            <PlayerInfo 
+              player={blackPlayer} 
+              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'black'} 
+            />
+          </motion.div>
+        </div>
       </div>
     </div>
   );
 }
 
-interface PlayerCardProps {
-  player: RoomPlayer;
+interface PlayerInfoProps {
+  player?: RoomPlayer;
   isCurrentTurn: boolean;
+  isMobile?: boolean;
 }
 
-function PlayerCard({ player, isCurrentTurn }: PlayerCardProps) {
+function PlayerInfo({ player, isCurrentTurn, isMobile = false }: PlayerInfoProps) {
+  const baseClasses = clsx(
+    'glass-panel transition-all duration-200',
+    isMobile ? 'p-2' : 'p-6',
+    isCurrentTurn ? 'ring-2 ring-indigo-500' : ''
+  );
+
   return (
     <motion.div
       animate={{ 
         scale: isCurrentTurn ? 1.05 : 1,
         opacity: isCurrentTurn ? 1 : 0.8 
       }}
-      className={`glass-panel p-6 ${isCurrentTurn ? 'ring-2 ring-indigo-500' : ''}`}
+      className={baseClasses}
     >
-      <div className="flex flex-col items-center gap-4">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold
-          ${player ? (
+      <div className="flex flex-col items-center gap-2 sm:gap-4">
+        <div className={clsx(
+          'rounded-full flex items-center justify-center font-bold',
+          isMobile ? 'w-8 h-8 text-sm' : 'w-16 h-16 text-xl',
+          player ? (
             player.color === 'red' 
               ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white' 
               : 'bg-slate-800 text-slate-300'
-          ) : 'bg-slate-800/50 text-slate-400'}`}
-        >
+          ) : 'bg-slate-800/50 text-slate-400'
+        )}>
           {player ? player.name[0].toUpperCase() : '?'}
         </div>
-        <div className="text-center">
-          <p className="font-medium">
-            {player ? player.name : 'Aguardando Jogador'}
-          </p>
-          <p className="text-sm text-gray-400">
-            {player ? (player.color === 'red' ? 'Vermelho' : 'Preto') : '...'}
-          </p>
-        </div>
-        {isCurrentTurn && player && (
-          <div className="flex items-center gap-2 text-indigo-400">
-            <Crown className="w-5 h-5" />
-            <span className="text-sm">Sua vez</span>
-          </div>
+        
+        {!isMobile && (
+          <>
+            <div className="text-center">
+              <p className="font-medium">
+                {player ? player.name : 'Aguardando'}
+              </p>
+              <p className="text-sm text-gray-400">
+                {player ? (player.color === 'red' ? 'Vermelho' : 'Preto') : '...'}
+              </p>
+            </div>
+            {isCurrentTurn && player && (
+              <div className="flex items-center gap-2 text-indigo-400">
+                <Crown className="w-5 h-5" />
+                <span className="text-sm">Sua vez</span>
+              </div>
+            )}
+          </>
         )}
       </div>
     </motion.div>

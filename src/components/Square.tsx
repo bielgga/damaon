@@ -1,26 +1,52 @@
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { Position } from '../types/game';
+import { useGameStore } from '../store/gameStore';
 
 interface SquareProps {
   row: number;
   col: number;
-  isValidMove?: boolean;
   isBlackSquare: boolean;
   children?: ReactNode;
-  onClick?: () => void;
 }
 
 export default function Square({ 
   row, 
   col, 
-  isValidMove, 
   isBlackSquare, 
-  onClick, 
   children 
 }: SquareProps) {
+  const { validMoves, selectedPiece } = useGameStore();
+  
+  // Verifica se esta posição é um movimento válido
+  const isValidMove = validMoves.some(
+    move => move.row === row && move.col === col
+  );
+
+  // Configuração do droppable
+  const { setNodeRef } = useDroppable({
+    id: JSON.stringify({ row, col }),
+  });
+
+  // Handler para clique no quadrado
+  const handleClick = () => {
+    if (!selectedPiece) return;
+    
+    // Se for um movimento válido, realiza o movimento
+    if (isValidMove) {
+      const store = useGameStore.getState();
+      const piece = store.pieces.find(p => p.id === selectedPiece);
+      if (piece) {
+        store.movePiece(piece.position, { row, col });
+      }
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
+      ref={setNodeRef}
+      onClick={handleClick}
       className={`relative aspect-square ${
         isBlackSquare 
           ? 'bg-slate-800 hover:bg-slate-700' 

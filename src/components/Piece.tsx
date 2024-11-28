@@ -12,12 +12,12 @@ interface PieceProps {
 
 export default function Piece({ piece }: PieceProps) {
   const { id, player, type } = piece;
-  const { selectedPiece, currentPlayer } = useGameStore();
+  const { selectedPiece, currentPlayer, selectPiece } = useGameStore();
   const isSelected = selectedPiece === id;
   const isCurrentPlayer = currentPlayer === player;
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id,
+    id: JSON.stringify(piece.position),
     data: piece,
     disabled: !isCurrentPlayer,
   });
@@ -26,12 +26,26 @@ export default function Piece({ piece }: PieceProps) {
     transform: CSS.Translate.toString(transform),
   } : undefined;
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isCurrentPlayer) return;
+    
+    // Se a peça já está selecionada, desseleciona
+    if (isSelected) {
+      selectPiece(null);
+    } else {
+      // Seleciona a peça e calcula movimentos válidos
+      selectPiece(id);
+    }
+  };
+
   return (
     <motion.div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      onClick={handleClick}
       initial={{ scale: 0.8 }}
       animate={{ 
         scale: isSelected ? 1.1 : 1,
@@ -45,10 +59,9 @@ export default function Piece({ piece }: PieceProps) {
           ? 'bg-slate-900 border-2 border-slate-700' 
           : 'bg-gradient-to-br from-rose-500 to-rose-600 border-2 border-rose-400',
         !isCurrentPlayer && 'opacity-80',
-        isCurrentPlayer && 'hover:scale-105 cursor-grab active:cursor-grabbing',
+        isCurrentPlayer && 'hover:scale-105 cursor-pointer',
         isSelected && 'ring-4 ring-indigo-500/50'
       )}
-      onClick={(e) => e.stopPropagation()}
     >
       {(type === 'king' || type === 'superKing') && (
         <Crown 

@@ -7,23 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../components/Notifications';
 import { Room } from '../types/game';
 
-interface RoomCardProps {
-  room: {
-    id: string;
-    name: string;
-    players: Array<{
-      id: string;
-      name: string;
-      color: 'red' | 'black';
-    }>;
-    status: 'waiting' | 'playing' | 'finished';
-  };
-  onJoin: (roomId: string) => void;
-}
-
 export default function GameLobby() {
   const navigate = useNavigate();
-  const { availableRooms, playerName } = useGameStore();
+  const { availableRooms, playerName, setAvailableRooms } = useGameStore();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'waiting' | 'playing'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'players'>('recent');
@@ -37,20 +23,32 @@ export default function GameLobby() {
     }
 
     console.log('Conectando ao servidor...');
-    socketService.connect();
+    const socket = socketService.connect();
     
+    // Handler para receber a lista de salas
+    const handleAvailableRooms = (rooms: Room[]) => {
+      console.log('Salas recebidas:', rooms);
+      setAvailableRooms(rooms);
+    };
+
+    // Registra o listener
+    socket?.on('availableRooms', handleAvailableRooms);
+    
+    // Solicita lista inicial de salas
     socketService.getRooms();
 
+    // Atualiza a lista periodicamente
     const interval = setInterval(() => {
-      if (socketService) {
+      if (socket?.connected) {
         socketService.getRooms();
       }
     }, 3000);
 
     return () => {
+      socket?.off('availableRooms', handleAvailableRooms);
       clearInterval(interval);
     };
-  }, [playerName, navigate]);
+  }, [playerName, navigate, setAvailableRooms]);
 
   const handleCreateRoom = async () => {
     if (!playerName) {
@@ -63,25 +61,10 @@ export default function GameLobby() {
     try {
       console.log('Iniciando criação de sala para:', playerName);
       
-      // Tenta criar a sala com retry
-      let retryCount = 0;
-      let room: Room | null = null;
+      const room = await socketService.createRoom(playerName);
       
-      while (retryCount < 3 && !room) {
-        try {
-          room = await socketService.createRoom(playerName);
-          break;
-        } catch (error) {
-          console.error(`Tentativa ${retryCount + 1} falhou:`, error);
-          retryCount++;
-          if (retryCount < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1s antes de retry
-          }
-        }
-      }
-
       if (!room) {
-        throw new Error('Não foi possível criar a sala após várias tentativas');
+        throw new Error('Erro ao criar sala');
       }
 
       console.log('Sala criada com sucesso:', room);
@@ -90,8 +73,6 @@ export default function GameLobby() {
     } catch (error) {
       console.error('Erro ao criar sala:', error);
       notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');
-      
-      // Reconecta o socket em caso de erro
       socketService.connect();
     } finally {
       setIsCreating(false);
@@ -105,7 +86,7 @@ export default function GameLobby() {
   };
 
   const goBack = () => {
-    navigate('/');
+    navigate('/modos');
   };
 
   const filteredRooms = availableRooms
@@ -123,7 +104,6 @@ export default function GameLobby() {
       if (sortBy === 'players') {
         return b.players.length - a.players.length;
       }
-      // Por padrão, ordena por mais recente
       return 0;
     });
 
@@ -222,6 +202,7 @@ export default function GameLobby() {
             key={room.id} 
             room={room} 
             onJoin={handleJoinRoom}
+            currentPlayerName={playerName}
           />
         ))}
 
@@ -248,7 +229,13 @@ export default function GameLobby() {
   );
 }
 
-function RoomCard({ room, onJoin }: RoomCardProps) {
+interface RoomCardProps {
+  room: Room;
+  onJoin: (roomId: string) => void;
+  currentPlayerName: string | null;
+}
+
+function RoomCard({ room, onJoin, currentPlayerName }: RoomCardProps) {
   return (
     <motion.div
       whileHover={{ y: -5 }}
@@ -302,11 +289,17 @@ function RoomCard({ room, onJoin }: RoomCardProps) {
         <div className="pt-2">
           <button
             onClick={() => onJoin(room.id)}
-            disabled={room.status !== 'waiting' || room.players.length >= 2}
+            disabled={room.status !== 'waiting' || 
+                     room.players.length >= 2 || 
+                     room.players.some(p => p.name === currentPlayerName)}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 
                      disabled:cursor-not-allowed rounded-xl transition-colors font-medium"
           >
-            {room.status === 'waiting' ? 'Entrar na Sala' : 'Sala Cheia'}
+            {room.players.some(p => p.name === currentPlayerName)
+              ? 'Você está nesta sala'
+              : room.status === 'waiting'
+                ? 'Entrar na Sala'
+                : 'Sala Cheia'}
           </button>
         </div>
 

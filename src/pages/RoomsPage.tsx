@@ -48,14 +48,13 @@ export default function RoomsPage() {
       
       if (room && room.id) {
         console.log('Redirecionando para sala:', room.id);
-        navigate(`/sala/${room.id}`, { replace: true });
+        window.location.href = `/sala/${room.id}`;
       } else {
         throw new Error('ID da sala não encontrado');
       }
     } catch (error) {
       console.error('Erro ao criar sala:', error);
       notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');
-    } finally {
       setIsCreating(false);
     }
   };

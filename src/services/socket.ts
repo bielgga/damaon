@@ -9,18 +9,11 @@ class SocketService {
   socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private roomsInterval: NodeJS.Timeout | null = null;
-  
+
   connect() {
     if (this.socket?.connected) {
       console.log('Socket já conectado');
       return this.socket;
-    }
-
-    // Desconecta socket existente se houver
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
     }
 
     console.log('Tentando conectar ao servidor:', SOCKET_URL);
@@ -41,10 +34,10 @@ class SocketService {
   private setupEventListeners() {
     if (!this.socket) return;
 
-    // Eventos de Conexão
     this.socket.on('connect', () => {
       console.log('Socket conectado:', this.socket?.id);
       this.reconnectAttempts = 0;
+      this.getRooms();
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -54,52 +47,25 @@ class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('Erro de conexão:', error);
       this.reconnectAttempts++;
-    });
-
-    // Eventos de Sala
-    this.socket.on('roomCreated', (room: Room) => {
-      console.log('Sala criada e jogador adicionado:', room);
-      useGameStore.getState().setRoomData(room);
-      useNotifications().addNotification('success', 'Sala criada com sucesso');
-    });
-
-    this.socket.on('roomJoined', (room: Room) => {
-      console.log('Entrou na sala:', room);
-      useGameStore.getState().setRoomData(room);
-    });
-
-    this.socket.on('gameStarted', (room: Room) => {
-      console.log('Jogo iniciado:', room);
-      if (room.gameData?.pieces) {
-        console.log('Peças iniciais:', room.gameData.pieces);
+      
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        useNotifications().addNotification('error', 'Erro de conexão com o servidor');
       }
-      useGameStore.getState().setRoomData(room);
-      useNotifications().addNotification('info', 'O jogo começou!');
     });
 
     this.socket.on('availableRooms', (rooms: Room[]) => {
+      console.log('Salas disponíveis recebidas:', rooms);
       useGameStore.getState().setAvailableRooms(rooms);
     });
+  }
 
-    // Eventos de Jogo
-    this.socket.on('moveMade', (data: { from: Position; to: Position }) => {
-      console.log('Movimento realizado:', data);
-      const store = useGameStore.getState();
-      if (store.currentRoom?.gameData) {
-        store.handleOpponentMove(data);
-      }
-    });
-
-    this.socket.on('gameUpdated', (room: Room) => {
-      console.log('Estado do jogo atualizado:', room);
-      useGameStore.getState().setRoomData(room);
-    });
-
-    // Eventos de Erro
-    this.socket.on('error', (error: any) => {
-      console.error('Erro do servidor:', error);
-      useNotifications().addNotification('error', error.message || 'Erro desconhecido');
-    });
+  getRooms() {
+    console.log('Solicitando lista de salas...');
+    if (!this.socket?.connected) {
+      console.log('Socket não conectado, reconectando...');
+      this.socket = this.connect();
+    }
+    this.socket?.emit('getRooms');
   }
 
   // Métodos de Sala
@@ -111,28 +77,44 @@ class SocketService {
 
       console.log('Criando sala para:', playerName);
       
+      // Timeout para a operação completa
+      const timeout = setTimeout(() => {
+        this.socket?.off('roomCreated');
+        reject(new Error('Timeout ao criar sala'));
+      }, 5000);
+
+      // Handler para sucesso na criação da sala
       const handleRoomCreated = (room: Room) => {
+        clearTimeout(timeout);
         console.log('Sala criada com sucesso:', room);
+        
+        // Atualiza o estado global
         useGameStore.getState().setRoomData(room);
+        
+        // Remove o listener para evitar duplicatas
         this.socket?.off('roomCreated', handleRoomCreated);
+        
         resolve(room);
       };
 
-      this.socket?.once('roomCreated', handleRoomCreated);
+      // Handler para erro
+      const handleError = (error: any) => {
+        clearTimeout(timeout);
+        this.socket?.off('error', handleError);
+        this.socket?.off('roomCreated', handleRoomCreated);
+        reject(error);
+      };
 
+      // Registra os handlers
+      this.socket?.once('roomCreated', handleRoomCreated);
+      this.socket?.once('error', handleError);
+
+      // Envia a requisição de criação
       this.socket?.emit('createRoom', { playerName }, (response: any) => {
-        if (response.error) {
-          console.error('Erro ao criar sala:', response.error);
-          this.socket?.off('roomCreated', handleRoomCreated);
-          reject(response.error);
+        if (response?.error) {
+          handleError(response.error);
         }
       });
-
-      // Timeout para evitar que a promessa fique pendente indefinidamente
-      setTimeout(() => {
-        this.socket?.off('roomCreated', handleRoomCreated);
-        reject(new Error('Timeout ao criar sala'));
-      }, 5000);
     });
   }
 
@@ -172,18 +154,7 @@ class SocketService {
     this.socket?.emit('makeMove', { roomId, from, to });
   }
 
-  // Métodos de Atualização
-  getRooms() {
-    if (!this.socket?.connected) {
-      this.socket = this.connect();
-    }
-    this.socket?.emit('getRooms');
-  }
-
   disconnect() {
-    if (this.roomsInterval) {
-      clearInterval(this.roomsInterval);
-    }
     if (this.socket?.connected) {
       this.socket.disconnect();
     }

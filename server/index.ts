@@ -80,7 +80,12 @@ io.on('connection', (socket) => {
     
     logWithTimestamp('Enviando lista de salas:', { 
       count: activeRooms.length,
-      rooms: activeRooms.map(r => ({ id: r.id, name: r.name, players: r.players.length }))
+      rooms: activeRooms.map(r => ({ 
+        id: r.id, 
+        name: r.name, 
+        players: r.players.length,
+        status: r.status 
+      }))
     });
     
     socket.emit('availableRooms', activeRooms);
