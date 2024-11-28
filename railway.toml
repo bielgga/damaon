@@ -1,11 +1,13 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build:server"
+buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm start"
-healthcheckPath = "/"
-healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
 
-[deploy.envs]
-PORT = "3001"
+[[services]]
+name = "web"
+protocol = "http"
+internal_port = 3001

@@ -2,12 +2,12 @@
   "name": "damas-online",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
-    "dev:server": "npx nodemon --exec ts-node -P tsconfig.server.json server/index.ts",
+    "dev:server": "ts-node -P server/tsconfig.json server/index.ts",
     "build:client": "vite build",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "rimraf dist/server && tsc -P server/tsconfig.json",
     "build": "npm run build:client && npm run build:server",
     "start": "node dist/server/index.js",
     "preview": "vite preview",
@@ -50,5 +50,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

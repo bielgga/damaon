@@ -9,13 +9,9 @@
       "outDir": "./dist/server",
       "rootDir": ".",
       "baseUrl": ".",
+      "allowJs": true,
       "paths": {
         "@shared/*": ["shared/*"]
-      }
-    },
-    "ts-node": {
-      "compilerOptions": {
-        "module": "CommonJS"
       }
     },
     "include": [
