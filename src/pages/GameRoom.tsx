@@ -6,11 +6,12 @@ import Board from '../components/Board';
 import { useGameStore } from '../store/gameStore';
 import { socketService } from '../services/socket';
 import { ArrowLeft, Crown } from 'lucide-react';
+import WaitingRoom from '../components/WaitingRoom';
 
 export default function GameRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, playerName, handleOpponentMove } = useGameStore();
+  const { currentRoom, playerName } = useGameStore();
 
   useEffect(() => {
     if (!roomId || !playerName) {
@@ -18,12 +19,24 @@ export default function GameRoom() {
       return;
     }
 
+    console.log('Inicializando GameRoom:', { roomId, playerName });
     socketService.connect();
-    
+
     return () => {
-      socketService.disconnect();
+      console.log('Limpando GameRoom...');
+      if (currentRoom) {
+        socketService.leaveRoom(currentRoom.id);
+      }
     };
-  }, [roomId, playerName, navigate]);
+  }, [roomId, playerName, navigate, currentRoom]);
+
+  if (!currentRoom) {
+    return null;
+  }
+
+  if (currentRoom.status === 'waiting') {
+    return <WaitingRoom />;
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -47,10 +60,6 @@ export default function GameRoom() {
     socketService.leaveRoom(currentRoom.id);
     navigate('/salas');
   };
-
-  if (!currentRoom) {
-    return null;
-  }
 
   const isSpectator = !currentRoom.players.find(p => p.name === playerName);
 
