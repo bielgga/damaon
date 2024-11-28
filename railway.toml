@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && tsc -p tsconfig.server.json"
+buildCommand = "npm install && npm run build:server"
 
 [deploy]
 startCommand = "node dist/server/index.js"
