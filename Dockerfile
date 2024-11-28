@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Verifica se o arquivo existe
-RUN ls -la dist/server/index.js || exit 1
+RUN ls -la dist/server/server/index.js || exit 1
 
 # Estágio de produção
 FROM node:18-alpine AS production

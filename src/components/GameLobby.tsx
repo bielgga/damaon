@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { socketService } from '../services/socket';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../components/Notifications';
+import { Room } from '../types/game';
 
 interface RoomCardProps {
   room: {
@@ -61,8 +62,7 @@ export default function GameLobby() {
     setIsCreating(true);
     try {
       console.log('Criando sala para:', playerName);
-      const response = await socketService.createRoom(playerName);
-      const room = response as Room;
+      const room = await socketService.createRoom(playerName);
       
       console.log('Sala criada com sucesso:', room);
       if (room && room.id) {
