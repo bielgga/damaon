@@ -53,7 +53,7 @@ export default function GameLobby() {
     };
   }, [playerName, navigate]);
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (!playerName) {
       notifications.addNotification('error', 'Você precisa definir um nome primeiro');
       navigate('/');
@@ -63,10 +63,14 @@ export default function GameLobby() {
     setIsCreating(true);
     try {
       console.log('Criando sala para:', playerName);
-      socketService.createRoom(playerName);
+      const room = await socketService.createRoom(playerName);
+      console.log('Sala criada com sucesso:', room);
+      
+      // Navega para a sala após criação bem-sucedida
+      navigate(`/sala/${room.id}`);
     } catch (error) {
       console.error('Erro ao criar sala:', error);
-      notifications.addNotification('error', 'Erro ao criar sala');
+      notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');
     } finally {
       setIsCreating(false);
     }

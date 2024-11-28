@@ -30,7 +30,9 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      transports: ['websocket', 'polling']
+      timeout: 10000,
+      transports: ['websocket', 'polling'],
+      withCredentials: true
     });
 
     this.setupEventListeners();
@@ -127,20 +129,44 @@ class SocketService {
 
   // Métodos de Sala
   createRoom(playerName: string) {
-    if (!this.socket?.connected) {
-      console.log('Socket não conectado, tentando reconectar...');
-      this.connect();
-      
-      // Aguarda a conexão antes de criar a sala
-      this.socket?.once('connect', () => {
-        console.log('Conectado! Criando sala...');
-        this.socket?.emit('createRoom', { playerName });
-      });
-      return;
-    }
+    return new Promise((resolve, reject) => {
+      if (!this.socket?.connected) {
+        console.log('Socket não conectado, tentando reconectar...');
+        this.connect();
+        
+        this.socket?.once('connect', () => {
+          console.log('Conectado! Criando sala...');
+          this.socket?.emit('createRoom', { playerName });
+          
+          this.socket?.once('roomCreated', (room) => resolve(room));
+          this.socket?.once('error', (error) => reject(error));
+        });
 
-    console.log('Emitindo evento createRoom:', { playerName });
-    this.socket.emit('createRoom', { playerName });
+        this.socket?.once('connect_error', (error) => {
+          console.error('Erro ao conectar:', error);
+          reject(new Error('Falha ao conectar ao servidor'));
+        });
+
+        return;
+      }
+
+      console.log('Emitindo evento createRoom:', { playerName });
+      this.socket.emit('createRoom', { playerName });
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout ao criar sala'));
+      }, 5000);
+
+      this.socket.once('roomCreated', (room) => {
+        clearTimeout(timeout);
+        resolve(room);
+      });
+
+      this.socket.once('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
   }
 
   joinRoom(roomId: string, playerName: string) {
