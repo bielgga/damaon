@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --production=false && npm run build:server"
+buildCommand = "npm install --omit=dev && npm run build:server"
 
 [deploy]
 startCommand = "node dist/server/index.js"
