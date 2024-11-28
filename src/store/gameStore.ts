@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { GameState, Piece, Player, Position, GameMode, Difficulty } from '../types/game';
+import { GameState, Piece, PlayerColor, Position, GameMode, Difficulty, Room, RoomPlayer } from '../types/game';
 import { getValidMoves, initializeBoard, makeMove } from '../utils/gameLogic';
 import { calculateBestMove } from '../utils/ai';
 
 interface Room {
   id: string;
   name: string;
-  players: Player[];
+  players: PlayerColor[];
   status: 'waiting' | 'playing' | 'finished';
 }
 
@@ -37,7 +37,7 @@ interface GameStore extends GameState {
   
   setAvailableRooms: (rooms: Room[]) => void;
   setRoomData: (roomData: Room) => void;
-  addPlayer: (player: Player) => void;
+  addPlayer: (player: PlayerColor) => void;
   startGame: (gameData: any) => void;
   handleOpponentMove: (moveData: any) => void;
   setPlayerName: (name: string) => void;

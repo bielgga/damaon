@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { Room, RoomPlayer } from './types';
 
 dotenv.config();
 
@@ -22,14 +23,10 @@ const io = new Server(httpServer, {
   }
 });
 
-interface GameRoom {
+interface GameRoom extends Room {
   id: string;
   name: string;
-  players: Array<{
-    id: string;
-    name: string;
-    color?: 'red' | 'black';
-  }>;
+  players: RoomPlayer[];
   status: 'waiting' | 'playing' | 'finished';
 }
 

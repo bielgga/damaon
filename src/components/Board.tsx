@@ -3,10 +3,15 @@ import { useGameStore } from '../store/gameStore';
 import Square from './Square';
 import Piece from './Piece';
 import { motion } from 'framer-motion';
+import { RoomPlayer } from '../types/game';
 
 export default function Board() {
   const { pieces, validMoves, selectedPiece, selectPiece, movePiece, currentRoom } = useGameStore();
   const { setNodeRef } = useDroppable({ id: 'board' });
+
+  const getPlayerByColor = (color: 'red' | 'black'): RoomPlayer | undefined => {
+    return currentRoom?.players.find(p => p.color === color);
+  };
 
   const handleSquareClick = (row: number, col: number) => {
     const piece = pieces.find(p => p.position.row === row && p.position.col === col);
@@ -35,12 +40,12 @@ export default function Board() {
         >
           <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center">
             <span className="text-3xl font-bold">
-              {currentRoom?.players.find(p => p.color === 'red')?.name[0].toUpperCase() || '?'}
+              {getPlayerByColor('red')?.name[0].toUpperCase() || '?'}
             </span>
           </div>
           <div className="text-center">
             <p className="font-medium">
-              {currentRoom?.players.find(p => p.color === 'red')?.name || 'Aguardando jogador...'}
+              {getPlayerByColor('red')?.name || 'Aguardando jogador...'}
             </p>
             <p className="text-sm text-red-400">Vermelho</p>
           </div>
@@ -80,12 +85,12 @@ export default function Board() {
         >
           <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center">
             <span className="text-3xl font-bold">
-              {currentRoom?.players.find(p => p.color === 'black')?.name[0].toUpperCase() || '?'}
+              {getPlayerByColor('black')?.name[0].toUpperCase() || '?'}
             </span>
           </div>
           <div className="text-center">
             <p className="font-medium">
-              {currentRoom?.players.find(p => p.color === 'black')?.name || 'Aguardando jogador...'}
+              {getPlayerByColor('black')?.name || 'Aguardando jogador...'}
             </p>
             <p className="text-sm text-gray-400">Preto</p>
           </div>
