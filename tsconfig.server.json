@@ -1,5 +1,4 @@
 {
-    "extends": "./tsconfig.node.json",
     "compilerOptions": {
       "target": "ES2020",
       "module": "CommonJS",
@@ -8,7 +7,7 @@
       "forceConsistentCasingInFileNames": true,
       "strict": true,
       "skipLibCheck": true,
-      "outDir": "./dist/server",
+      "outDir": "dist",
       "rootDir": ".",
       "baseUrl": ".",
       "paths": {
@@ -20,5 +19,5 @@
       "server/**/*",
       "shared/**/*"
     ],
-    "exclude": ["node_modules", "src", "dist"]
+    "exclude": ["node_modules", "src"]
 }

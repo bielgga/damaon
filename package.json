@@ -7,9 +7,11 @@
     "dev:server": "ts-node server/index.ts",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "build": "tsc -p tsconfig.server.json",
+    "build": "npm run build:server",
     "start": "node dist/server/index.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean"
   },
   "dependencies": {
     "@types/cors": "^2.8.17",
@@ -20,7 +22,8 @@
     "express": "^4.18.2",
     "socket.io": "^4.7.4",
     "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "rimraf": "^5.0.5"
   },
   "devDependencies": {
     "@dnd-kit/core": "^6.1.0",

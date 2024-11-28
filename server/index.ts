@@ -25,9 +25,7 @@ const io = new Server(httpServer, {
   cors: {
     origin: FRONTEND_URL,
     methods: ["GET", "POST"],
-    credentials: true,
-    allowedHeaders: ["my-custom-header"],
-    transports: ['websocket', 'polling']
+    credentials: true
   }
 });
 
