@@ -6,8 +6,6 @@ buildCommand = "npm run build"
 startCommand = "npm start"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-restartPolicyType = "on-failure"
-restartPolicyMaxRetries = 3
 
 [deploy.env]
 NODE_ENV = "production"
@@ -16,28 +14,13 @@ FRONTEND_URL = "https://dama-online.netlify.app"
 
 [[services]]
 name = "damas-online"
-protocol = "tcp"
 internal_port = "3001"
 
-[services.concurrency]
-type = "connections"
-hard_limit = 1000
-soft_limit = 800
-
-[services.http_checks]
+[services.http]
+path = "/health"
 interval = "30s"
 timeout = "10s"
-grace_period = "5s"
-method = "GET"
-path = "/health"
-protocol = "http"
 
-[services.restart_policy]
-condition = "on-failure"
-delay = "5s"
-max_attempts = 3
-window = "120s"
-
-[services.resources]
+[services.limits]
 memory = "512MB"
-cpu = "0.5" 
+cpu = 0.5 
