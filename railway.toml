@@ -3,13 +3,11 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm start"
 healthcheckPath = "/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 100
 restartPolicy = "on-failure"
 numReplicas = 1
-healthcheckInterval = "10s"
-port = "3001"
 
 [deploy.envs]
 PORT = "3001"

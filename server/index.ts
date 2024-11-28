@@ -13,29 +13,21 @@ const PORT = process.env.PORT || 3001;
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
   next();
 });
 
+// Basic route para verificar se o servidor está rodando
+app.get('/', (_req, res) => {
+  res.send('Server is running');
+});
+
 // Healthcheck endpoint
-app.get(['/health', '/'], async (_req, res) => {
-  try {
-    const status = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      port: PORT
-    };
-    
-    res.status(200).json(status);
-  } catch (error: unknown) {
-    console.error('Erro no healthcheck:', error);
-    res.status(500).json({ 
-      status: 'unhealthy', 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // CORS configuration
@@ -162,19 +154,29 @@ io.on('connection', (socket) => {
 });
 
 // Inicia o servidor
-httpServer.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+const server = httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
   console.log(`CORS configurado para: ${FRONTEND_URL}`);
   console.log(`Ambiente: ${process.env.NODE_ENV}`);
-}).on('error', (err: Error) => {
-  console.error('Erro ao iniciar servidor:', err);
-  process.exit(1);
+});
+
+// Error handling
+server.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled rejection:', error);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM recebido. Iniciando shutdown graceful...');
-  httpServer.close(() => {
+  server.close(() => {
     console.log('Servidor HTTP fechado.');
     process.exit(0);
   });
