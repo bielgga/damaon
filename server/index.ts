@@ -17,16 +17,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Healthcheck endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
+// Healthcheck endpoint - Movido para antes de todas as outras rotas
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
   });
 });
 
@@ -153,26 +150,29 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+// Inicia o servidor e garante que está rodando
+const server = httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`CORS configurado para: ${FRONTEND_URL}`);
   console.log(`Ambiente: ${process.env.NODE_ENV}`);
 });
 
 // Error handling
-httpServer.on('error', (error) => {
+server.on('error', (error) => {
   console.error('Erro no servidor HTTP:', error);
-});
-
-io.on('connect_error', (error) => {
-  console.error('Erro de conexão Socket.IO:', error);
+  process.exit(1); // Força o processo a terminar em caso de erro
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM recebido. Iniciando shutdown graceful...');
-  httpServer.close(() => {
+  server.close(() => {
     console.log('Servidor HTTP fechado.');
     process.exit(0);
   });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Erro não tratado:', error);
+  process.exit(1);
 });
