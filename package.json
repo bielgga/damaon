@@ -7,9 +7,9 @@
     "dev": "vite",
     "dev:server": "ts-node -P server/tsconfig.json server/index.ts",
     "build:client": "vite build",
-    "build:server": "tsc -P server/tsconfig.json",
+    "build:server": "rimraf dist/server && tsc -P server/tsconfig.json",
     "build": "npm run build:client && npm run build:server",
-    "start": "node dist/server/server/index.js",
+    "start": "node dist/server/index.js",
     "preview": "vite preview",
     "clean": "rimraf dist",
     "postinstall": "npm run build"
