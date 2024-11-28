@@ -36,7 +36,10 @@ export default function RoomsPage() {
     if (!playerName) return;
     setIsCreating(true);
     try {
-      await socketService.createRoom(playerName);
+      const room = await socketService.createRoom(playerName);
+      navigate(`/sala/${room.id}`);
+    } catch (error) {
+      console.error('Erro ao criar sala:', error);
     } finally {
       setIsCreating(false);
     }

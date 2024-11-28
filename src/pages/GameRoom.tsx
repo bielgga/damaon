@@ -43,21 +43,15 @@ export default function GameRoom() {
     socket?.on('gameStarted', handleGameStarted);
     socket?.on('error', handleError);
 
-    // Tenta entrar na sala
-    socketService.joinRoom(roomId, playerName);
-
-    // Polling para manter a sala atualizada
-    const interval = setInterval(() => {
-      if (socket?.connected && currentRoom?.id === roomId) {
-        socketService.joinRoom(roomId, playerName);
-      }
-    }, 5000);
+    // Tenta entrar na sala apenas se não estiver nela
+    if (!currentRoom || currentRoom.id !== roomId) {
+      socketService.joinRoom(roomId, playerName);
+    }
 
     return () => {
       socket?.off('roomJoined', handleRoomJoined);
       socket?.off('gameStarted', handleGameStarted);
       socket?.off('error', handleError);
-      clearInterval(interval);
       if (currentRoom?.id === roomId) {
         socketService.leaveRoom(roomId);
       }

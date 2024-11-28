@@ -9,6 +9,8 @@ export default function Board() {
   const pieces = currentRoom?.gameData?.pieces || [];
   const { setNodeRef } = useDroppable({ id: 'board' });
 
+  console.log('Current pieces:', pieces); // Debug log
+
   return (
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
@@ -26,7 +28,10 @@ export default function Board() {
         {Array.from({ length: 64 }, (_, i) => {
           const row = Math.floor(i / 8);
           const col = i % 8;
-          const piece = pieces.find(p => p.position.row === row && p.position.col === col);
+          const piece = pieces.find(p => 
+            p.position.row === row && 
+            p.position.col === col
+          );
           const isBlackSquare = (row + col) % 2 === 1;
 
           return (
@@ -36,7 +41,12 @@ export default function Board() {
               col={col}
               isBlackSquare={isBlackSquare}
             >
-              {piece && <Piece piece={piece} />}
+              {piece && (
+                <Piece 
+                  key={piece.id} 
+                  piece={piece} 
+                />
+              )}
             </Square>
           );
         })}
