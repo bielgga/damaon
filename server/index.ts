@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room } from '../shared/types';
+import { Room, Piece, PlayerColor, PieceType, GameData } from '../shared/types';
 
 dotenv.config();
 
@@ -327,16 +327,17 @@ process.on('unhandledRejection', (reason) => {
   shutdown();
 });
 
-function initializeBoard() {
-  const pieces = [];
+function initializeBoard(): Piece[] {
+  const pieces: Piece[] = [];
+  
   // Peças vermelhas (jogador 1)
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 8; col++) {
       if ((row + col) % 2 === 1) {
         pieces.push({
           id: `red-${row}-${col}`,
-          player: 'red',
-          type: 'normal',
+          player: 'red' as PlayerColor,
+          type: 'normal' as PieceType,
           position: { row, col }
         });
       }
@@ -349,8 +350,8 @@ function initializeBoard() {
       if ((row + col) % 2 === 1) {
         pieces.push({
           id: `black-${row}-${col}`,
-          player: 'black',
-          type: 'normal',
+          player: 'black' as PlayerColor,
+          type: 'normal' as PieceType,
           position: { row, col }
         });
       }
