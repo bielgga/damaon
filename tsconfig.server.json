@@ -6,7 +6,7 @@
       "esModuleInterop": true,
       "strict": true,
       "skipLibCheck": true,
-      "outDir": "dist/server",
+      "outDir": "./dist/server",
       "rootDir": ".",
       "baseUrl": ".",
       "paths": {
@@ -22,5 +22,5 @@
       "server/**/*",
       "shared/**/*"
     ],
-    "exclude": ["node_modules", "src"]
+    "exclude": ["node_modules", "dist", "src"]
 }

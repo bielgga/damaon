@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { useNotifications } from '../components/Notifications';
 import { Room, Position, PlayerColor } from '../types/game';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://web-production-4161.up.railway.app';
 
 interface MoveData {
   from: Position;

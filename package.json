@@ -11,7 +11,8 @@
     "build": "npm run build:client && npm run build:server",
     "start": "node dist/server/index.js",
     "preview": "vite preview",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "postinstall": "npm run build:server"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

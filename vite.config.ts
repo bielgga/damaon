@@ -19,7 +19,8 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/socket.io': {
-        target: 'http://localhost:3001',
+        target: 'https://web-production-4161.up.railway.app',
+        changeOrigin: true,
         ws: true
       }
     }
