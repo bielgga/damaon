@@ -22,9 +22,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
+// CORS configuration - Mais permissivo para desenvolvimento
 const corsOptions = {
-  origin: [FRONTEND_URL, 'http://localhost:3000', '*'],
+  origin: [
+    FRONTEND_URL,
+    'http://localhost:3000',
+    'https://dama-online.netlify.app',
+    '*'
+  ],
   methods: ['GET', 'POST'],
   credentials: true
 };
