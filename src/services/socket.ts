@@ -16,7 +16,7 @@ interface GameOverData {
 }
 
 class SocketService {
-  private socket: Socket | null = null;
+  socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private roomsInterval: NodeJS.Timeout | null = null;
@@ -181,8 +181,19 @@ class SocketService {
   }
 
   joinRoom(roomId: string, playerName: string) {
+    if (!this.socket?.connected) {
+      console.log('Socket não conectado, reconectando...');
+      this.connect();
+      
+      this.socket?.once('connect', () => {
+        console.log('Conectado! Entrando na sala...');
+        this.socket?.emit('joinRoom', { roomId, playerName });
+      });
+      return;
+    }
+
     console.log('Entrando na sala:', roomId, 'como:', playerName);
-    this.socket?.emit('joinRoom', { roomId, playerName });
+    this.socket.emit('joinRoom', { roomId, playerName });
   }
 
   leaveRoom(roomId: string) {

@@ -6,12 +6,11 @@ import Board from '../components/Board';
 import { useGameStore } from '../store/gameStore';
 import { socketService } from '../services/socket';
 import { ArrowLeft } from 'lucide-react';
-import WaitingRoom from '../components/WaitingRoom';
 
 export default function GameRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, playerName } = useGameStore();
+  const { currentRoom, playerName, setRoomData } = useGameStore();
 
   useEffect(() => {
     if (!roomId || !playerName) {
@@ -20,19 +19,46 @@ export default function GameRoom() {
     }
 
     console.log('Inicializando GameRoom:', { roomId, playerName });
+    
+    // Conecta ao socket
     socketService.connect();
 
+    // Configura os listeners
+    const handleRoomJoined = (room: any) => {
+      console.log('Room joined:', room);
+      setRoomData(room);
+    };
+
+    const handleGameStarted = (room: any) => {
+      console.log('Game started:', room);
+      setRoomData(room);
+    };
+
+    socketService.socket?.on('roomJoined', handleRoomJoined);
+    socketService.socket?.on('gameStarted', handleGameStarted);
+
+    // Tenta entrar na sala
+    socketService.joinRoom(roomId, playerName);
+
     return () => {
+      socketService.socket?.off('roomJoined', handleRoomJoined);
+      socketService.socket?.off('gameStarted', handleGameStarted);
       if (currentRoom) {
         socketService.leaveRoom(currentRoom.id);
       }
     };
-  }, [roomId, playerName, navigate]);
+  }, [roomId, playerName, navigate, setRoomData]);
+
+  // Debug logs
+  console.log('Current room:', currentRoom);
 
   if (!currentRoom) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Carregando sala...</p>
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p>Carregando sala...</p>
+        </div>
       </div>
     );
   }
