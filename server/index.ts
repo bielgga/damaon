@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room, Piece, PlayerColor, PieceType, GameData } from '../shared/types';
+import { Room, Piece, PlayerColor, PieceType, Position } from '../shared/types';
 
 dotenv.config();
 
@@ -93,9 +93,9 @@ io.on('connection', (socket) => {
         socketId: socket.id 
       });
       
-      // Verifica se o jogador já está em uma sala
+      // Verifica se o jogador já está em alguma sala
       const existingRoom = Array.from(rooms.values()).find(
-        room => room.players.some(p => p.name === playerName)
+        room => room.players.some(p => p.name === playerName || p.id === socket.id)
       );
 
       if (existingRoom) {
@@ -171,18 +171,30 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Verifica se o jogador já está em alguma sala
+      const isInAnyRoom = Array.from(rooms.values()).some(
+        r => r.players.some(p => p.name === playerName || p.id === socket.id)
+      );
+
+      if (isInAnyRoom) {
+        socket.emit('error', { message: 'Você já está em uma sala' });
+        return;
+      }
+
+      // Verifica se a sala está cheia
       if (room.players.length >= 2) {
         socket.emit('error', { message: 'Sala cheia' });
         return;
       }
 
-      // Verifica se o jogador já está na sala
-      if (room.players.some(p => p.name === playerName)) {
-        socket.emit('error', { message: 'Você já está nesta sala' });
+      // Verifica se o jogador está tentando entrar em sua própria sala
+      const isCreator = room.players.some(p => p.name === playerName);
+      if (isCreator) {
+        socket.emit('error', { message: 'Você não pode entrar em sua própria sala' });
         return;
       }
 
-      // Segundo jogador sempre será preto
+      // Adiciona o segundo jogador como preto
       room.players.push({
         id: socket.id,
         name: playerName,
@@ -195,7 +207,7 @@ io.on('connection', (socket) => {
       
       await socket.join(roomId);
       
-      // Se tiver 2 jogadores, inicia o jogo
+      // Inicia o jogo apenas quando houver dois jogadores diferentes
       if (room.players.length === 2) {
         room.status = 'playing';
         room.gameData = {
@@ -219,6 +231,128 @@ io.on('connection', (socket) => {
     } catch (error) {
       logWithTimestamp('Erro ao entrar na sala:', { error });
       socket.emit('error', { message: 'Erro ao entrar na sala' });
+    }
+  });
+
+  socket.on('makeMove', async ({ roomId, from, to }) => {
+    try {
+      const room = rooms.get(roomId);
+      if (!room || !room.gameData) {
+        socket.emit('error', { message: 'Sala não encontrada ou jogo não iniciado' });
+        return;
+      }
+
+      const player = room.players.find(p => p.id === socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Jogador não encontrado na sala' });
+        return;
+      }
+
+      // Verifica se é a vez do jogador
+      if (player.color !== room.gameData.currentPlayer) {
+        socket.emit('error', { message: 'Não é sua vez' });
+        return;
+      }
+
+      // Encontra a peça que está sendo movida
+      const piece = room.gameData.pieces.find(
+        p => p.position.row === from.row && p.position.col === from.col
+      );
+
+      if (!piece || piece.player !== player.color) {
+        socket.emit('error', { message: 'Peça inválida' });
+        return;
+      }
+
+      // Valida o movimento
+      const result = makeMove(room.gameData.pieces, from, to, player.color);
+      if (!result) {
+        socket.emit('error', { message: 'Movimento inválido' });
+        return;
+      }
+
+      // Atualiza o estado do jogo
+      room.gameData.pieces = result.newPieces;
+      
+      // Se não houver mais capturas disponíveis, passa a vez
+      if (!result.mustContinueCapture) {
+        room.gameData.currentPlayer = player.color === 'red' ? 'black' : 'red';
+      }
+
+      // Atualiza pontuação se houve captura
+      if (result.captured) {
+        room.gameData.scores[player.color]++;
+      }
+
+      // Verifica condições de vitória
+      const remainingPieces = {
+        red: room.gameData.pieces.filter(p => p.player === 'red').length,
+        black: room.gameData.pieces.filter(p => p.player === 'black').length
+      };
+
+      if (remainingPieces.red === 0 || remainingPieces.black === 0) {
+        const winner = remainingPieces.red === 0 ? 'black' : 'red';
+        room.status = 'finished';
+        io.to(roomId).emit('gameOver', { 
+          winner,
+          reason: 'capture'
+        });
+      }
+
+      // Emite os eventos de atualização
+      io.to(roomId).emit('moveMade', { from, to });
+      io.to(roomId).emit('gameUpdated', room);
+
+      // Atualiza a sala
+      rooms.set(roomId, room);
+
+    } catch (error) {
+      logWithTimestamp('Erro ao realizar movimento:', { error });
+      socket.emit('error', { message: 'Erro ao realizar movimento' });
+    }
+  });
+
+  socket.on('surrender', ({ roomId }) => {
+    try {
+      const room = rooms.get(roomId);
+      if (!room || !room.gameData) return;
+
+      const player = room.players.find(p => p.id === socket.id);
+      if (!player) return;
+
+      room.status = 'finished';
+      const winner = player.color === 'red' ? 'black' : 'red';
+
+      io.to(roomId).emit('gameOver', {
+        winner,
+        reason: 'surrender'
+      });
+
+      rooms.set(roomId, room);
+
+    } catch (error) {
+      logWithTimestamp('Erro ao desistir:', { error });
+    }
+  });
+
+  socket.on('requestRematch', ({ roomId }) => {
+    try {
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      // Reinicia o jogo
+      room.status = 'playing';
+      room.gameData = {
+        pieces: initializeBoard(),
+        currentPlayer: 'red',
+        scores: { red: 0, black: 0 }
+      };
+
+      io.to(roomId).emit('gameStarted', room);
+      rooms.set(roomId, room);
+
+    } catch (error) {
+      logWithTimestamp('Erro ao solicitar revanche:', { error });
     }
   });
 
@@ -363,6 +497,191 @@ function initializeBoard(): Piece[] {
   }
   
   return pieces;
+}
+
+// Funções de validação de movimento
+function getBasicMoves(piece: Piece, pieces: Piece[]): Position[] {
+  const moves: Position[] = [];
+  const { row, col } = piece.position;
+
+  // Direções possíveis de movimento
+  const directions = piece.type === 'normal'
+    ? (piece.player === 'black' ? [[1, -1], [1, 1]] : [[-1, -1], [-1, 1]])
+    : [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+  // Verifica cada direção possível
+  for (const [dRow, dCol] of directions) {
+    const newRow = row + dRow;
+    const newCol = col + dCol;
+
+    // Verifica se está dentro do tabuleiro
+    if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
+
+    // Verifica se a posição está vazia
+    if (!pieces.some(p => p.position.row === newRow && p.position.col === newCol)) {
+      moves.push({ row: newRow, col: newCol });
+    }
+  }
+
+  return moves;
+}
+
+function getCaptureMoves(piece: Piece, pieces: Piece[]): Position[] {
+  const moves: Position[] = [];
+  const { row, col } = piece.position;
+
+  // Direções possíveis de captura
+  const directions = piece.type === 'normal'
+    ? (piece.player === 'black' ? [[2, -2], [2, 2]] : [[-2, -2], [-2, 2]])
+    : [[-2, -2], [-2, 2], [2, -2], [2, 2]];
+
+  // Verifica cada direção possível
+  for (const [dRow, dCol] of directions) {
+    const newRow = row + dRow;
+    const newCol = col + dCol;
+    const midRow = row + dRow/2;
+    const midCol = col + dCol/2;
+
+    // Verifica se está dentro do tabuleiro
+    if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
+
+    // Verifica se há uma peça adversária no meio
+    const capturedPiece = pieces.find(p => 
+      p.position.row === midRow && 
+      p.position.col === midCol && 
+      p.player !== piece.player
+    );
+
+    // Verifica se a posição final está vazia
+    const isDestinationEmpty = !pieces.some(p =>
+      p.position.row === newRow && p.position.col === newCol
+    );
+
+    if (capturedPiece && isDestinationEmpty) {
+      moves.push({ row: newRow, col: newCol });
+    }
+  }
+
+  return moves;
+}
+
+// Função para obter movimentos válidos
+function getValidMoves(pieces: Piece[], from: Position, currentPlayer: PlayerColor): Position[] {
+  const piece = pieces.find(p => 
+    p.position.row === from.row && 
+    p.position.col === from.col && 
+    p.player === currentPlayer
+  );
+
+  if (!piece) return [];
+
+  // Verifica se há capturas disponíveis
+  const captures = getCaptureMoves(piece, pieces);
+  if (captures.length > 0) return captures;
+
+  // Se não houver capturas, retorna movimentos básicos
+  return getBasicMoves(piece, pieces);
+}
+
+// Função auxiliar para validar movimento
+function makeMove(pieces: Piece[], from: Position, to: Position, currentPlayer: PlayerColor) {
+  // Verifica se é um movimento válido
+  const validMoves = getValidMoves(pieces, from, currentPlayer);
+  if (!validMoves.some(move => move.row === to.row && move.col === to.col)) {
+    return null;
+  }
+
+  const newPieces = [...pieces];
+  const pieceIndex = pieces.findIndex(
+    p => p.position.row === from.row && p.position.col === from.col
+  );
+
+  // Atualiza a posição da peça
+  newPieces[pieceIndex] = {
+    ...newPieces[pieceIndex],
+    position: to
+  };
+
+  // Verifica se é uma captura
+  const rowDiff = Math.abs(to.row - from.row);
+  const colDiff = Math.abs(to.col - from.col);
+  let captured = false;
+  let mustContinueCapture = false;
+
+  if (rowDiff === 2) {
+    const capturedRow = (from.row + to.row) / 2;
+    const capturedCol = (from.col + to.col) / 2;
+    const capturedIndex = pieces.findIndex(
+      p => p.position.row === capturedRow && p.position.col === capturedCol
+    );
+    
+    if (capturedIndex !== -1) {
+      newPieces.splice(capturedIndex, 1);
+      captured = true;
+
+      // Verifica se há mais capturas disponíveis
+      const moreCapturesAvailable = hasMoreCaptures(newPieces, to, currentPlayer);
+      if (moreCapturesAvailable) {
+        mustContinueCapture = true;
+      }
+    }
+  }
+
+  // Verifica promoção a dama
+  const piece = newPieces[pieceIndex];
+  if (
+    piece.type === 'normal' && 
+    ((currentPlayer === 'red' && to.row === 0) || 
+     (currentPlayer === 'black' && to.row === 7))
+  ) {
+    piece.type = 'king';
+  }
+
+  return {
+    newPieces,
+    captured,
+    mustContinueCapture
+  };
+}
+
+function hasMoreCaptures(pieces: Piece[], position: Position, player: PlayerColor): boolean {
+  const piece = pieces.find(p => 
+    p.position.row === position.row && p.position.col === position.col
+  );
+  if (!piece) return false;
+
+  // Verifica todas as direções possíveis para captura
+  const directions = [
+    [-2, -2], [-2, 2], [2, -2], [2, 2]
+  ];
+
+  for (const [dRow, dCol] of directions) {
+    const newRow = position.row + dRow;
+    const newCol = position.col + dCol;
+    const midRow = position.row + dRow/2;
+    const midCol = position.col + dCol/2;
+
+    // Verifica se a posição final está dentro do tabuleiro
+    if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
+
+    // Verifica se há uma peça adversária no meio
+    const capturedPiece = pieces.find(p => 
+      p.position.row === midRow && 
+      p.position.col === midCol && 
+      p.player !== player
+    );
+
+    // Verifica se a posição final está vazia
+    const isDestinationEmpty = !pieces.some(p =>
+      p.position.row === newRow && p.position.col === newCol
+    );
+
+    if (capturedPiece && isDestinationEmpty) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export default server;
