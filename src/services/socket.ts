@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { useNotifications } from '../components/Notifications';
 import { Room, Position, PlayerColor } from '../types/game';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://web-production-4161.up.railway.app';
+const SOCKET_URL = 'https://web-production-4161.up.railway.app';
 
 interface MoveData {
   from: Position;
@@ -128,7 +128,7 @@ class SocketService {
   }
 
   // Métodos de Sala
-  createRoom(playerName: string) {
+  createRoom(playerName: string): Promise<Room> {
     return new Promise((resolve, reject) => {
       if (!this.socket?.connected) {
         console.log('Socket não conectado, tentando reconectar...');
@@ -138,7 +138,7 @@ class SocketService {
           console.log('Conectado! Criando sala...');
           this.socket?.emit('createRoom', { playerName });
           
-          this.socket?.once('roomCreated', (room) => resolve(room));
+          this.socket?.once('roomCreated', (room: Room) => resolve(room));
           this.socket?.once('error', (error) => reject(error));
         });
 
@@ -157,7 +157,7 @@ class SocketService {
         reject(new Error('Timeout ao criar sala'));
       }, 5000);
 
-      this.socket.once('roomCreated', (room) => {
+      this.socket.once('roomCreated', (room: Room) => {
         clearTimeout(timeout);
         resolve(room);
       });

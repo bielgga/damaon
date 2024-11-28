@@ -38,10 +38,8 @@ export default function GameLobby() {
     console.log('Conectando ao servidor...');
     socketService.connect();
     
-    // Solicita lista de salas inicial
     socketService.getRooms();
 
-    // Polling para atualizar lista de salas
     const interval = setInterval(() => {
       if (socketService) {
         socketService.getRooms();
@@ -63,11 +61,15 @@ export default function GameLobby() {
     setIsCreating(true);
     try {
       console.log('Criando sala para:', playerName);
-      const room = await socketService.createRoom(playerName);
-      console.log('Sala criada com sucesso:', room);
+      const response = await socketService.createRoom(playerName);
+      const room = response as Room;
       
-      // Navega para a sala após criação bem-sucedida
-      navigate(`/sala/${room.id}`);
+      console.log('Sala criada com sucesso:', room);
+      if (room && room.id) {
+        navigate(`/sala/${room.id}`);
+      } else {
+        throw new Error('Resposta inválida do servidor');
+      }
     } catch (error) {
       console.error('Erro ao criar sala:', error);
       notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');

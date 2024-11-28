@@ -1,9 +1,9 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Room, GameData } from '../shared/types';
+import { Room } from '../shared/types';
 
 dotenv.config();
 
@@ -18,7 +18,7 @@ const logWithTimestamp = (message: string, data?: any) => {
 };
 
 // Healthcheck endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -28,8 +28,8 @@ app.get('/health', (req, res) => {
 });
 
 // Logging middleware
-app.use((req, res, next) => {
-  logWithTimestamp(`${req.method} ${req.path}`);
+app.use((_req: Request, _res: Response, next: NextFunction) => {
+  logWithTimestamp(`${_req.method} ${_req.path}`);
   next();
 });
 
@@ -62,39 +62,35 @@ const playerRooms = new Map<string, string>();
 // Limpa salas inativas periodicamente
 setInterval(() => {
   const now = Date.now();
-  for (const [roomId, room] of rooms.entries()) {
-    // Remove salas vazias ou inativas por mais de 1 hora
+  Array.from(rooms.entries()).forEach(([roomId, room]) => {
     if (room.players.length === 0 || (room.lastActivity && now - room.lastActivity > 3600000)) {
       rooms.delete(roomId);
       logWithTimestamp(`Sala removida por inatividade: ${roomId}`);
     }
-  }
+  });
 }, 300000); // Executa a cada 5 minutos
 
 io.on('connection', (socket) => {
   logWithTimestamp('Cliente conectado:', { socketId: socket.id });
 
-  // Mantém registro da última atividade do socket
-  let lastActivity = Date.now();
-  const updateActivity = () => {
-    lastActivity = Date.now();
+  const updateRoomActivity = (roomId: string) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      room.lastActivity = Date.now();
+      rooms.set(roomId, room);
+    }
   };
 
   socket.on('getRooms', () => {
-    updateActivity();
     logWithTimestamp('Solicitação de lista de salas recebida');
     const activeRooms = Array.from(rooms.values())
       .filter(room => room.players.length > 0 && room.status !== 'finished')
-      .map(room => ({
-        ...room,
-        lastActivity: undefined // Remove dados sensíveis/desnecessários
-      }));
+      .map(({ lastActivity, ...room }) => room); // Remove lastActivity do retorno
     socket.emit('availableRooms', activeRooms);
   });
 
   socket.on('createRoom', async ({ playerName }) => {
     try {
-      updateActivity();
       logWithTimestamp('Criando sala para jogador:', { playerName });
       
       // Verifica se o jogador já está em uma sala
@@ -154,7 +150,7 @@ io.on('connection', (socket) => {
       const room = rooms.get(roomId);
       if (room) {
         room.players = room.players.filter(p => p.id !== socket.id);
-        room.lastActivity = Date.now();
+        updateRoomActivity(roomId);
         
         if (room.players.length === 0) {
           rooms.delete(roomId);
@@ -180,7 +176,7 @@ io.on('connection', (socket) => {
 });
 
 // Rota raiz com informações do servidor
-app.get('/', (req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     name: 'Damas Online API',
     status: 'running',

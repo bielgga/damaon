@@ -21,6 +21,14 @@ export interface Room {
   players: RoomPlayer[];
   status: 'waiting' | 'playing' | 'finished';
   gameData?: GameData;
+  lastActivity?: number;
+  createdAt?: number;
+}
+
+export interface GameData {
+  pieces: Piece[];
+  currentPlayer: PlayerColor;
+  scores: Record<PlayerColor, number>;
 }
 
 export interface Piece {
@@ -29,10 +37,4 @@ export interface Piece {
   type: PieceType;
   position: Position;
   mustContinueCapture?: boolean;
-}
-
-export interface GameData {
-  pieces: Piece[];
-  currentPlayer: PlayerColor;
-  scores: Record<PlayerColor, number>;
 } 

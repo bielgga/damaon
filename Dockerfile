@@ -1,22 +1,39 @@
-FROM node:18-alpine
+# Estágio de build
+FROM node:18-alpine AS builder
 
+# Define o diretório de trabalho
 WORKDIR /app
 
-# Instala as dependências primeiro para aproveitar o cache do Docker
+# Copia os arquivos de configuração
 COPY package*.json ./
-RUN npm install
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
 
-# Copia o resto dos arquivos
+# Instala as dependências
+RUN npm ci
+
+# Copia o código fonte
 COPY . .
 
 # Build do projeto
-RUN npm run build
+RUN npm run build:client && \
+    npm run build:server
 
-# Verifica se o arquivo existe
-RUN ls -la dist/server/server/index.js
+# Estágio de produção
+FROM node:18-alpine AS production
 
-# Expõe a porta que o servidor usa
+WORKDIR /app
+
+# Copia apenas os arquivos necessários do estágio de build
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/.env* ./
+
+# Instala apenas as dependências de produção
+RUN npm ci --only=production
+
+# Expõe a porta do servidor
 EXPOSE 3001
 
 # Comando para iniciar o servidor
-CMD ["node", "dist/server/server/index.js"] 
+CMD ["npm", "start"] 
