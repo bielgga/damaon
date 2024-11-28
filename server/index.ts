@@ -23,12 +23,16 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy' });
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // CORS configuration
 const corsOptions = {
-  origin: [FRONTEND_URL, 'http://localhost:3000'],
+  origin: [FRONTEND_URL, 'http://localhost:3000', '*'],
   methods: ['GET', 'POST'],
   credentials: true
 };
