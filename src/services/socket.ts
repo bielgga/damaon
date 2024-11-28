@@ -32,7 +32,9 @@ class SocketService {
       reconnectionDelay: 1000,
       timeout: 10000,
       transports: ['websocket', 'polling'],
-      withCredentials: true
+      withCredentials: true,
+      autoConnect: true,
+      forceNew: true
     });
 
     this.setupEventListeners();
@@ -130,19 +132,29 @@ class SocketService {
   // Métodos de Sala
   createRoom(playerName: string): Promise<Room> {
     return new Promise((resolve, reject) => {
-      if (!this.socket?.connected) {
+      if (!this.socket) {
+        reject(new Error('Socket não inicializado'));
+        return;
+      }
+
+      if (!this.socket.connected) {
         console.log('Socket não conectado, tentando reconectar...');
-        this.connect();
         
-        this.socket?.once('connect', () => {
-          console.log('Conectado! Criando sala...');
-          this.socket?.emit('createRoom', { playerName });
-          
-          this.socket?.once('roomCreated', (room: Room) => resolve(room));
-          this.socket?.once('error', (error) => reject(error));
+        // Tenta reconectar
+        this.socket.connect();
+        
+        // Espera a conexão com timeout
+        let connectionTimeout = setTimeout(() => {
+          reject(new Error('Timeout ao conectar ao servidor'));
+        }, 5000);
+
+        this.socket.once('connect', () => {
+          clearTimeout(connectionTimeout);
+          this.emitCreateRoom(playerName, resolve, reject);
         });
 
-        this.socket?.once('connect_error', (error) => {
+        this.socket.once('connect_error', (error) => {
+          clearTimeout(connectionTimeout);
           console.error('Erro ao conectar:', error);
           reject(new Error('Falha ao conectar ao servidor'));
         });
@@ -150,22 +162,40 @@ class SocketService {
         return;
       }
 
-      console.log('Emitindo evento createRoom:', { playerName });
-      this.socket.emit('createRoom', { playerName });
-      
-      const timeout = setTimeout(() => {
-        reject(new Error('Timeout ao criar sala'));
-      }, 5000);
+      this.emitCreateRoom(playerName, resolve, reject);
+    });
+  }
 
-      this.socket.once('roomCreated', (room: Room) => {
-        clearTimeout(timeout);
-        resolve(room);
-      });
+  private emitCreateRoom(
+    playerName: string, 
+    resolve: (room: Room) => void, 
+    reject: (error: Error) => void
+  ) {
+    console.log('Emitindo evento createRoom:', { playerName });
+    
+    if (!this.socket) {
+      reject(new Error('Socket não inicializado'));
+      return;
+    }
 
-      this.socket.once('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
+    this.socket.emit('createRoom', { playerName });
+    
+    const timeout = setTimeout(() => {
+      this.socket?.off('roomCreated');
+      this.socket?.off('error');
+      reject(new Error('Timeout ao criar sala'));
+    }, 10000);
+
+    this.socket.once('roomCreated', (room: Room) => {
+      clearTimeout(timeout);
+      console.log('Sala criada com sucesso:', room);
+      resolve(room);
+    });
+
+    this.socket.once('error', (error) => {
+      clearTimeout(timeout);
+      console.error('Erro ao criar sala:', error);
+      reject(error);
     });
   }
 

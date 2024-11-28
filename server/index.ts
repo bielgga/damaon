@@ -73,25 +73,25 @@ setInterval(() => {
 io.on('connection', (socket) => {
   logWithTimestamp('Cliente conectado:', { socketId: socket.id });
 
-  const updateRoomActivity = (roomId: string) => {
-    const room = rooms.get(roomId);
-    if (room) {
-      room.lastActivity = Date.now();
-      rooms.set(roomId, room);
-    }
-  };
-
   socket.on('getRooms', () => {
     logWithTimestamp('Solicitação de lista de salas recebida');
     const activeRooms = Array.from(rooms.values())
-      .filter(room => room.players.length > 0 && room.status !== 'finished')
-      .map(({ lastActivity, ...room }) => room); // Remove lastActivity do retorno
+      .filter(room => room.players.length > 0 && room.status !== 'finished');
+    
+    logWithTimestamp('Enviando lista de salas:', { 
+      count: activeRooms.length,
+      rooms: activeRooms.map(r => ({ id: r.id, name: r.name, players: r.players.length }))
+    });
+    
     socket.emit('availableRooms', activeRooms);
   });
 
   socket.on('createRoom', async ({ playerName }) => {
     try {
-      logWithTimestamp('Criando sala para jogador:', { playerName });
+      logWithTimestamp('Recebida solicitação de criação de sala:', { 
+        playerName,
+        socketId: socket.id 
+      });
       
       // Verifica se o jogador já está em uma sala
       const existingRoom = Array.from(rooms.values()).find(
@@ -110,7 +110,11 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Gera ID único para a sala
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      logWithTimestamp('Gerando nova sala:', { roomId });
+
+      // Cria a sala
       const room: Room = {
         id: roomId,
         name: `Sala de ${playerName}`,
@@ -124,33 +128,58 @@ io.on('connection', (socket) => {
         createdAt: Date.now()
       };
 
+      // Salva a sala
       rooms.set(roomId, room);
       playerRooms.set(socket.id, roomId);
       
+      // Adiciona o socket à sala
       await socket.join(roomId);
-      logWithTimestamp('Sala criada com sucesso:', { room });
       
+      logWithTimestamp('Sala criada com sucesso:', { 
+        room,
+        socketId: socket.id,
+        roomsCount: rooms.size
+      });
+      
+      // Emite eventos
       socket.emit('roomCreated', room);
       io.emit('availableRooms', Array.from(rooms.values()));
+
     } catch (error) {
-      logWithTimestamp('Erro ao criar sala:', { error, playerName });
+      logWithTimestamp('Erro ao criar sala:', { 
+        error, 
+        playerName,
+        socketId: socket.id 
+      });
+      
       socket.emit('error', { 
         code: 'CREATE_ROOM_ERROR',
-        message: 'Erro ao criar sala' 
+        message: 'Erro ao criar sala',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
       });
     }
   });
 
-  // Monitora desconexões
+  // Monitora desconexões com mais detalhes
   socket.on('disconnect', (reason) => {
-    logWithTimestamp('Cliente desconectado:', { socketId: socket.id, reason });
-    const roomId = playerRooms.get(socket.id);
+    logWithTimestamp('Cliente desconectado:', { 
+      socketId: socket.id, 
+      reason,
+      roomId: playerRooms.get(socket.id)
+    });
     
+    const roomId = playerRooms.get(socket.id);
     if (roomId) {
       const room = rooms.get(roomId);
       if (room) {
+        logWithTimestamp('Removendo jogador da sala:', {
+          socketId: socket.id,
+          roomId,
+          playersCount: room.players.length
+        });
+
         room.players = room.players.filter(p => p.id !== socket.id);
-        updateRoomActivity(roomId);
+        room.lastActivity = Date.now();
         
         if (room.players.length === 0) {
           rooms.delete(roomId);
@@ -169,9 +198,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Tratamento de erros do socket
+  // Adiciona handler para erros de socket
   socket.on('error', (error) => {
-    logWithTimestamp('Erro no socket:', { socketId: socket.id, error });
+    logWithTimestamp('Erro no socket:', { 
+      socketId: socket.id, 
+      error,
+      roomId: playerRooms.get(socket.id)
+    });
   });
 });
 

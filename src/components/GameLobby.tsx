@@ -61,18 +61,38 @@ export default function GameLobby() {
     
     setIsCreating(true);
     try {
-      console.log('Criando sala para:', playerName);
-      const room = await socketService.createRoom(playerName);
+      console.log('Iniciando criação de sala para:', playerName);
       
-      console.log('Sala criada com sucesso:', room);
-      if (room && room.id) {
-        navigate(`/sala/${room.id}`);
-      } else {
-        throw new Error('Resposta inválida do servidor');
+      // Tenta criar a sala com retry
+      let retryCount = 0;
+      let room: Room | null = null;
+      
+      while (retryCount < 3 && !room) {
+        try {
+          room = await socketService.createRoom(playerName);
+          break;
+        } catch (error) {
+          console.error(`Tentativa ${retryCount + 1} falhou:`, error);
+          retryCount++;
+          if (retryCount < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1s antes de retry
+          }
+        }
       }
+
+      if (!room) {
+        throw new Error('Não foi possível criar a sala após várias tentativas');
+      }
+
+      console.log('Sala criada com sucesso:', room);
+      navigate(`/sala/${room.id}`);
+      
     } catch (error) {
       console.error('Erro ao criar sala:', error);
       notifications.addNotification('error', 'Erro ao criar sala. Tente novamente.');
+      
+      // Reconecta o socket em caso de erro
+      socketService.connect();
     } finally {
       setIsCreating(false);
     }
