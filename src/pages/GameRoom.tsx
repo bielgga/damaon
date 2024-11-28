@@ -20,8 +20,10 @@ export default function GameRoom() {
 
     console.log('Inicializando GameRoom:', { roomId, playerName });
     
-    // Conecta ao socket
-    socketService.connect();
+    // Conecta ao socket apenas se não estiver conectado
+    if (!socketService.socket?.connected) {
+      socketService.connect();
+    }
 
     // Configura os listeners
     const handleRoomJoined = (room: any) => {
@@ -34,11 +36,18 @@ export default function GameRoom() {
       setRoomData(room);
     };
 
+    // Remove listeners anteriores para evitar duplicação
+    socketService.socket?.off('roomJoined', handleRoomJoined);
+    socketService.socket?.off('gameStarted', handleGameStarted);
+
+    // Adiciona novos listeners
     socketService.socket?.on('roomJoined', handleRoomJoined);
     socketService.socket?.on('gameStarted', handleGameStarted);
 
-    // Tenta entrar na sala
-    socketService.joinRoom(roomId, playerName);
+    // Tenta entrar na sala apenas se não estiver nela
+    if (!currentRoom || currentRoom.id !== roomId) {
+      socketService.joinRoom(roomId, playerName);
+    }
 
     return () => {
       socketService.socket?.off('roomJoined', handleRoomJoined);
@@ -49,14 +58,11 @@ export default function GameRoom() {
     };
   }, [roomId, playerName, navigate, setRoomData]);
 
-  // Debug logs
-  console.log('Current room:', currentRoom);
-
   if (!currentRoom) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="fixed inset-0 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p>Carregando sala...</p>
         </div>
       </div>
@@ -64,18 +70,18 @@ export default function GameRoom() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden">
       {/* Background Elements */}
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
-      <div className="fixed inset-0 bg-grid-pattern opacity-5" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
       
       {/* Content */}
-      <div className="relative z-10">
+      <div className="relative h-full flex items-center justify-center">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed top-0 left-0 right-0 p-6 flex items-center justify-between"
+          className="absolute top-6 left-0 right-0 px-6 flex items-center justify-between"
         >
           <button
             onClick={() => navigate('/salas')}
@@ -102,46 +108,83 @@ export default function GameRoom() {
           </div>
         </motion.div>
 
-        {/* Game Board */}
-        <div className="flex items-center justify-center min-h-screen">
-          <DndContext onDragEnd={handleDragEnd}>
-            <Board />
-          </DndContext>
-        </div>
+        {/* Left Player */}
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute left-8 top-1/2 -translate-y-1/2"
+        >
+          {currentRoom.players.find(p => p.color === 'red') && (
+            <PlayerCard
+              player={currentRoom.players.find(p => p.color === 'red')!}
+              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'red'}
+            />
+          )}
+        </motion.div>
 
-        {/* Players */}
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex gap-8">
-          {currentRoom?.players.map((player) => (
-            <motion.div
-              key={player.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`glass-panel px-6 py-3 ${
-                currentRoom.gameData?.currentPlayer === player.color
-                  ? 'ring-2 ring-indigo-500'
-                  : ''
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                  ${player.color === 'red' 
-                    ? 'bg-gradient-to-br from-rose-500 to-rose-600' 
-                    : 'bg-slate-800'}`}
-                >
-                  {player.name[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-medium">{player.name}</p>
-                  <p className="text-sm text-gray-400">
-                    {player.color === 'red' ? 'Vermelho' : 'Preto'}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Game Board */}
+        <DndContext onDragEnd={handleDragEnd}>
+          <Board />
+        </DndContext>
+
+        {/* Right Player */}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute right-8 top-1/2 -translate-y-1/2"
+        >
+          {currentRoom.players.find(p => p.color === 'black') && (
+            <PlayerCard
+              player={currentRoom.players.find(p => p.color === 'black')!}
+              isCurrentTurn={currentRoom.gameData?.currentPlayer === 'black'}
+            />
+          )}
+        </motion.div>
       </div>
     </div>
+  );
+}
+
+interface PlayerCardProps {
+  player: {
+    id: string;
+    name: string;
+    color: 'red' | 'black';
+  };
+  isCurrentTurn: boolean;
+}
+
+function PlayerCard({ player, isCurrentTurn }: PlayerCardProps) {
+  return (
+    <motion.div
+      animate={{ 
+        scale: isCurrentTurn ? 1.05 : 1,
+        opacity: isCurrentTurn ? 1 : 0.8 
+      }}
+      className={`glass-panel p-6 ${isCurrentTurn ? 'ring-2 ring-indigo-500' : ''}`}
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold
+          ${player.color === 'red' 
+            ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white' 
+            : 'bg-slate-800 text-slate-300'}`}
+        >
+          {player.name[0].toUpperCase()}
+        </div>
+        <div className="text-center">
+          <p className="font-medium">{player.name}</p>
+          <p className="text-sm text-gray-400">
+            {player.color === 'red' ? 'Vermelho' : 'Preto'}
+          </p>
+        </div>
+        {isCurrentTurn && (
+          <div className="flex items-center gap-2 text-indigo-400">
+            <Crown className="w-5 h-5" />
+            <span className="text-sm">Sua vez</span>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }
 

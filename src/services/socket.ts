@@ -27,6 +27,12 @@ class SocketService {
       return;
     }
 
+    // Desconecta socket existente se houver
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
     console.log('Tentando conectar ao servidor:', SOCKET_URL);
 
     this.socket = io(SOCKET_URL, {
