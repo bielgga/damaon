@@ -3,16 +3,5 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node dist/server/server/index.js"
 healthcheckPath = "/health"
-healthcheckTimeout = 180
-healthcheckInterval = 30
-restartPolicy = "on-failure"
-
-[deploy.envs]
-NODE_ENV = "production"
-
-[[services]]
-name = "web"
-protocol = "http"
-internal_port = 3001

@@ -11,20 +11,15 @@ const app = express();
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const PORT = process.env.PORT || 3001;
 
+// Healthcheck endpoint - Primeiro para garantir resposta rápida
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
   next();
-});
-
-// Healthcheck endpoint - Movido para antes de todas as outras rotas
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  });
 });
 
 // CORS configuration
@@ -62,7 +57,6 @@ io.on('connection', (socket) => {
     try {
       console.log('Criando sala para jogador:', playerName);
       
-      // Verifica se o jogador já está em uma sala
       const existingRoomId = Array.from(rooms.values()).find(
         room => room.players.some(p => p.name === playerName)
       )?.id;
@@ -150,7 +144,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Inicia o servidor e garante que está rodando
+// Inicia o servidor
 const server = httpServer.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`CORS configurado para: ${FRONTEND_URL}`);
@@ -160,7 +154,7 @@ const server = httpServer.listen(PORT, () => {
 // Error handling
 server.on('error', (error) => {
   console.error('Erro no servidor HTTP:', error);
-  process.exit(1); // Força o processo a terminar em caso de erro
+  process.exit(1);
 });
 
 // Graceful shutdown
