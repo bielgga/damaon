@@ -33,3 +33,7 @@ dist-ssr
 # Build
 dist/
 build/
+
+# Docker
+Dockerfile
+.dockerignore

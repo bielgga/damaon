@@ -1,9 +1,10 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build:server"
+buildCommand = "npm install && npm run build:server"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm start"
+restartPolicy = "always"
 
 [deploy.envs]
 PORT = "3001"
