@@ -30,9 +30,12 @@ app.get(['/health', '/'], async (req, res) => {
     };
     
     res.status(200).json(status);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Erro no healthcheck:', error);
-    res.status(500).json({ status: 'unhealthy', error: error.message });
+    res.status(500).json({ 
+      status: 'unhealthy', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 });
 
