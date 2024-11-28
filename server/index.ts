@@ -160,6 +160,64 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('joinRoom', async ({ roomId, playerName }) => {
+    try {
+      logWithTimestamp('Recebida solicitação para entrar na sala:', { 
+        roomId, 
+        playerName,
+        socketId: socket.id 
+      });
+      
+      const room = rooms.get(roomId);
+      if (!room) {
+        socket.emit('error', { message: 'Sala não encontrada' });
+        return;
+      }
+
+      if (room.players.length >= 2) {
+        socket.emit('error', { message: 'Sala cheia' });
+        return;
+      }
+
+      // Adiciona o jogador
+      room.players.push({
+        id: socket.id,
+        name: playerName,
+        color: 'black'
+      });
+
+      room.lastActivity = Date.now();
+      rooms.set(roomId, room);
+      playerRooms.set(socket.id, roomId);
+      
+      await socket.join(roomId);
+      
+      // Se tiver 2 jogadores, inicia o jogo
+      if (room.players.length === 2) {
+        room.status = 'playing';
+        room.gameData = {
+          pieces: initializeBoard(),
+          currentPlayer: 'red',
+          scores: { red: 0, black: 0 }
+        };
+        
+        logWithTimestamp('Iniciando jogo na sala:', { 
+          roomId,
+          players: room.players 
+        });
+        
+        io.to(roomId).emit('gameStarted', room);
+      }
+      
+      io.to(roomId).emit('roomJoined', room);
+      io.emit('availableRooms', Array.from(rooms.values()));
+
+    } catch (error) {
+      logWithTimestamp('Erro ao entrar na sala:', { error });
+      socket.emit('error', { message: 'Erro ao entrar na sala' });
+    }
+  });
+
   // Monitora desconexões com mais detalhes
   socket.on('disconnect', (reason) => {
     logWithTimestamp('Cliente desconectado:', { 
@@ -268,5 +326,38 @@ process.on('unhandledRejection', (reason) => {
   logWithTimestamp('Promise não tratada:', { reason });
   shutdown();
 });
+
+function initializeBoard() {
+  const pieces = [];
+  // Peças vermelhas (jogador 1)
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        pieces.push({
+          id: `red-${row}-${col}`,
+          player: 'red',
+          type: 'normal',
+          position: { row, col }
+        });
+      }
+    }
+  }
+  
+  // Peças pretas (jogador 2)
+  for (let row = 5; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      if ((row + col) % 2 === 1) {
+        pieces.push({
+          id: `black-${row}-${col}`,
+          player: 'black',
+          type: 'normal',
+          position: { row, col }
+        });
+      }
+    }
+  }
+  
+  return pieces;
+}
 
 export default server;

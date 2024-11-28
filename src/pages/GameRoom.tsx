@@ -22,6 +22,11 @@ export default function GameRoom() {
     console.log('Inicializando GameRoom:', { roomId, playerName });
     socketService.connect();
 
+    if (currentRoom?.id === roomId) {
+      console.log('Reconectando à sala:', roomId);
+      socketService.joinRoom(roomId, playerName);
+    }
+
     return () => {
       console.log('Limpando GameRoom...');
       if (currentRoom) {
@@ -72,26 +77,15 @@ export default function GameRoom() {
         className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10"
       >
         <button
-          onClick={handleLeaveRoom}
+          onClick={() => navigate('/salas')}
           className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl backdrop-blur-sm"
         >
           <ArrowLeft className="w-5 h-5" />
           Voltar para Salas
         </button>
 
-        <div className="flex items-center gap-4">
-          {!isSpectator && (
-            <button
-              onClick={handleSurrender}
-              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl backdrop-blur-sm"
-            >
-              Desistir
-            </button>
-          )}
-          <div className="px-4 py-2 bg-gray-800/50 rounded-xl backdrop-blur-sm flex items-center gap-2">
-            <Crown className="w-5 h-5 text-yellow-400" />
-            <span>Sala: {currentRoom.name}</span>
-          </div>
+        <div className="px-4 py-2 bg-gray-800/50 rounded-xl backdrop-blur-sm">
+          {currentRoom.gameData?.currentPlayer === 'red' ? 'Vez do Vermelho' : 'Vez do Preto'}
         </div>
       </motion.div>
 
@@ -100,16 +94,21 @@ export default function GameRoom() {
         <Board />
       </DndContext>
 
-      {/* Game Status */}
-      {currentRoom.status === 'waiting' && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-blue-500/20 text-blue-400 rounded-xl backdrop-blur-sm"
-        >
-          Aguardando outro jogador...
-        </motion.div>
-      )}
+      {/* Players */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-8">
+        {currentRoom.players.map((player) => (
+          <div
+            key={player.id}
+            className={`px-6 py-3 rounded-xl backdrop-blur-sm ${
+              currentRoom.gameData?.currentPlayer === player.color
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'bg-gray-800/50'
+            }`}
+          >
+            {player.name} ({player.color === 'red' ? 'Vermelho' : 'Preto'})
+          </div>
+        ))}
+      </div>
     </div>
   );
 } 
