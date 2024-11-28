@@ -2,13 +2,12 @@
   "name": "vite-react-typescript-starter",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:server": "ts-node server/index.ts",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "build": "npm ci && vite build",
+    "build": "vite build",
     "start": "node dist/server/index.js",
     "preview": "vite preview"
   },
@@ -28,7 +27,6 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.6.1",
     "@types/cors": "^2.8.17",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^4.17.21",
