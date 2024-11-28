@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useEffect, useState } from 'react';
 import { socketService } from '../services/socket';
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, Plus, Crown } from 'lucide-react';
 
 export default function RoomsList() {
   const { availableRooms, playerName, setPlayerName } = useGameStore();
@@ -40,40 +40,49 @@ export default function RoomsList() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md mx-auto bg-gray-800 rounded-xl p-6 shadow-xl"
+        className="max-w-md mx-auto"
       >
-        <form onSubmit={handleSubmitName} className="space-y-4">
-          <h2 className="text-xl font-bold text-center">Digite seu nome para começar</h2>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Seu nome"
-            className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            maxLength={20}
-          />
-          <button
-            type="submit"
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-          >
-            Continuar
-          </button>
-        </form>
+        <div className="bg-gray-800/50 backdrop-blur-md rounded-2xl p-8 shadow-xl border border-gray-700">
+          <form onSubmit={handleSubmitName} className="space-y-6">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold">Bem-vindo!</h2>
+              <p className="text-gray-400">Digite seu nome para começar a jogar</p>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome"
+                className="w-full px-4 py-3 bg-gray-700/50 rounded-xl border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                maxLength={20}
+              />
+              <button
+                type="submit"
+                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors font-medium"
+              >
+                Começar a Jogar
+              </button>
+            </div>
+          </form>
+        </div>
       </motion.div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4">
-      <div className="flex justify-between items-center mb-8">
+    <div className="max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-2xl font-bold">Salas Disponíveis</h2>
-          <p className="text-gray-400">Jogando como: {playerName}</p>
+          <h2 className="text-3xl font-bold">Salas Disponíveis</h2>
+          <p className="text-gray-400">Jogando como <span className="text-blue-400 font-medium">{playerName}</span></p>
         </div>
         <button
           onClick={handleCreateRoom}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
         >
+          <Plus className="w-5 h-5" />
           Criar Nova Sala
         </button>
       </div>
@@ -83,11 +92,14 @@ export default function RoomsList() {
           <motion.div
             key={room.id}
             whileHover={{ y: -5 }}
-            className="bg-gray-800 rounded-xl overflow-hidden"
+            className="bg-gray-800/50 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden"
           >
             <div className="p-6 space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">{room.name}</h3>
+                <div className="flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-yellow-400" />
+                  <h3 className="text-xl font-semibold">{room.name}</h3>
+                </div>
                 <span className={`px-3 py-1 rounded-full text-sm ${
                   room.status === 'waiting' 
                     ? 'bg-green-500/20 text-green-400'
@@ -109,7 +121,7 @@ export default function RoomsList() {
               </div>
 
               <div className="flex items-center gap-2">
-                {room.players.map((player, index) => (
+                {room.players.map((player) => (
                   <div
                     key={player.id}
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -127,22 +139,36 @@ export default function RoomsList() {
                 ))}
               </div>
 
-              <button
-                onClick={() => handleJoinRoom(room.id)}
-                disabled={room.status !== 'waiting' || room.players.length >= 2}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 
-                         disabled:cursor-not-allowed rounded-lg transition-colors"
-              >
-                {room.status === 'waiting' ? 'Entrar na Sala' : 'Sala Cheia'}
-              </button>
+              <div className="pt-2">
+                <button
+                  onClick={() => handleJoinRoom(room.id)}
+                  disabled={room.status !== 'waiting' || room.players.length >= 2}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 
+                           disabled:cursor-not-allowed rounded-xl transition-colors font-medium"
+                >
+                  {room.status === 'waiting' ? 'Entrar na Sala' : 'Sala Cheia'}
+                </button>
+              </div>
+
+              <div className="text-center text-sm text-gray-500">
+                ID da Sala: <span className="font-mono">{room.id}</span>
+              </div>
             </div>
           </motion.div>
         ))}
 
         {availableRooms.length === 0 && (
-          <div className="col-span-full text-center py-12 text-gray-400">
-            <p>Nenhuma sala disponível no momento</p>
-            <p className="mt-2">Crie uma nova sala para começar a jogar!</p>
+          <div className="col-span-full text-center py-12">
+            <div className="bg-gray-800/50 backdrop-blur-md rounded-2xl p-8 border border-gray-700">
+              <h3 className="text-xl font-bold mb-2">Nenhuma sala disponível</h3>
+              <p className="text-gray-400 mb-6">Seja o primeiro a criar uma sala!</p>
+              <button
+                onClick={handleCreateRoom}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+              >
+                Criar Sala
+              </button>
+            </div>
           </div>
         )}
       </div>

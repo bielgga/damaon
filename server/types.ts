@@ -9,4 +9,12 @@ export interface Room {
   name: string;
   players: RoomPlayer[];
   status: 'waiting' | 'playing' | 'finished';
+  gameData?: {
+    pieces: any[];
+    currentPlayer: 'red' | 'black';
+    scores: {
+      red: number;
+      black: number;
+    };
+  };
 } 
