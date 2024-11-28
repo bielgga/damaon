@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
@@ -6,6 +6,7 @@ import Board from '../components/Board';
 import { useGameStore } from '../store/gameStore';
 import { socketService } from '../services/socket';
 import { ArrowLeft, Crown, Users } from 'lucide-react';
+import { Room, RoomPlayer } from '../types/game';
 
 export default function GameRoom() {
   const { roomId } = useParams();
@@ -20,47 +21,65 @@ export default function GameRoom() {
 
     console.log('Inicializando GameRoom:', { roomId, playerName });
     
-    // Conecta ao socket apenas se não estiver conectado
-    if (!socketService.socket?.connected) {
-      socketService.connect();
-    }
+    // Conecta ao socket e configura os listeners
+    const socket = socketService.connect();
 
-    // Configura os listeners
-    const handleRoomJoined = (room: any) => {
+    const handleRoomJoined = (room: Room) => {
       console.log('Room joined:', room);
       setRoomData(room);
     };
 
-    const handleGameStarted = (room: any) => {
+    const handleGameStarted = (room: Room) => {
       console.log('Game started:', room);
       setRoomData(room);
     };
 
-    // Remove listeners anteriores para evitar duplicação
-    socketService.socket?.off('roomJoined', handleRoomJoined);
-    socketService.socket?.off('gameStarted', handleGameStarted);
+    const handleError = (error: any) => {
+      console.error('Socket error:', error);
+      navigate('/salas');
+    };
 
-    // Adiciona novos listeners
-    socketService.socket?.on('roomJoined', handleRoomJoined);
-    socketService.socket?.on('gameStarted', handleGameStarted);
+    socket?.on('roomJoined', handleRoomJoined);
+    socket?.on('gameStarted', handleGameStarted);
+    socket?.on('error', handleError);
 
-    // Tenta entrar na sala apenas se não estiver nela
-    if (!currentRoom || currentRoom.id !== roomId) {
-      socketService.joinRoom(roomId, playerName);
-    }
+    // Tenta entrar na sala
+    socketService.joinRoom(roomId, playerName);
+
+    // Polling para manter a sala atualizada
+    const interval = setInterval(() => {
+      if (socket?.connected && currentRoom?.id === roomId) {
+        socketService.joinRoom(roomId, playerName);
+      }
+    }, 5000);
 
     return () => {
-      socketService.socket?.off('roomJoined', handleRoomJoined);
-      socketService.socket?.off('gameStarted', handleGameStarted);
-      if (currentRoom) {
-        socketService.leaveRoom(currentRoom.id);
+      socket?.off('roomJoined', handleRoomJoined);
+      socket?.off('gameStarted', handleGameStarted);
+      socket?.off('error', handleError);
+      clearInterval(interval);
+      if (currentRoom?.id === roomId) {
+        socketService.leaveRoom(roomId);
       }
     };
   }, [roomId, playerName, navigate, setRoomData]);
 
-  if (!currentRoom) {
+  // Loading state com timeout
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!currentRoom) {
+        navigate('/salas');
+      }
+      setIsLoading(false);
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [currentRoom, navigate]);
+
+  if (isLoading || !currentRoom) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-900">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p>Carregando sala...</p>
@@ -68,6 +87,9 @@ export default function GameRoom() {
       </div>
     );
   }
+
+  const redPlayer = currentRoom.players.find(p => p.color === 'red');
+  const blackPlayer = currentRoom.players.find(p => p.color === 'black');
 
   return (
     <div className="fixed inset-0 overflow-hidden">
@@ -92,7 +114,7 @@ export default function GameRoom() {
           </button>
 
           <div className="glass-panel px-6 py-3">
-            {currentRoom?.status === 'playing' ? (
+            {currentRoom.status === 'playing' ? (
               <div className="flex items-center gap-2">
                 <Crown className="w-5 h-5 text-indigo-400" />
                 <span>
@@ -108,15 +130,15 @@ export default function GameRoom() {
           </div>
         </motion.div>
 
-        {/* Left Player */}
+        {/* Left Player (Red) */}
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           className="absolute left-8 top-1/2 -translate-y-1/2"
         >
-          {currentRoom.players.find(p => p.color === 'red') && (
+          {redPlayer && (
             <PlayerCard
-              player={currentRoom.players.find(p => p.color === 'red')!}
+              player={redPlayer}
               isCurrentTurn={currentRoom.gameData?.currentPlayer === 'red'}
             />
           )}
@@ -127,15 +149,15 @@ export default function GameRoom() {
           <Board />
         </DndContext>
 
-        {/* Right Player */}
+        {/* Right Player (Black) */}
         <motion.div
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           className="absolute right-8 top-1/2 -translate-y-1/2"
         >
-          {currentRoom.players.find(p => p.color === 'black') && (
+          {blackPlayer && (
             <PlayerCard
-              player={currentRoom.players.find(p => p.color === 'black')!}
+              player={blackPlayer}
               isCurrentTurn={currentRoom.gameData?.currentPlayer === 'black'}
             />
           )}
@@ -146,11 +168,7 @@ export default function GameRoom() {
 }
 
 interface PlayerCardProps {
-  player: {
-    id: string;
-    name: string;
-    color: 'red' | 'black';
-  };
+  player: RoomPlayer;
   isCurrentTurn: boolean;
 }
 
