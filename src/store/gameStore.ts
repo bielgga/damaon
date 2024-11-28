@@ -3,13 +3,6 @@ import { GameState, Piece, PlayerColor, Position, GameMode, Difficulty, Room, Ro
 import { getValidMoves, initializeBoard, makeMove } from '../utils/gameLogic';
 import { calculateBestMove } from '../utils/ai';
 
-interface Room {
-  id: string;
-  name: string;
-  players: PlayerColor[];
-  status: 'waiting' | 'playing' | 'finished';
-}
-
 interface GameStore extends GameState {
   initGame: (mode: GameMode, difficulty?: Difficulty) => void;
   selectPiece: (pieceId: string | null) => void;
@@ -32,15 +25,15 @@ interface GameStore extends GameState {
   leaveRoom: () => void;
   setGuestName: (name: string) => void;
   availableRooms: Room[];
-  currentRoom: Room | null;
   playerName: string | null;
   
   setAvailableRooms: (rooms: Room[]) => void;
   setRoomData: (roomData: Room) => void;
-  addPlayer: (player: PlayerColor) => void;
+  addPlayer: (player: RoomPlayer) => void;
   startGame: (gameData: any) => void;
   handleOpponentMove: (moveData: any) => void;
   setPlayerName: (name: string) => void;
+  handlePlayerDisconnect: (playerId: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -65,7 +58,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     avatar: null
   },
   availableRooms: [],
-  currentRoom: null,
   playerName: null,
 
   initGame: (mode: GameMode, difficulty?: Difficulty) => {
@@ -280,4 +272,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setPlayerName: (name) => set({ playerName: name }),
+
+  handlePlayerDisconnect: (playerId) => {
+    // Lógica para lidar com desconexão do jogador
+  },
 }));
