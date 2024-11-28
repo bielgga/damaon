@@ -16,8 +16,10 @@ RUN npm ci
 COPY . .
 
 # Build do projeto
-RUN npm run build:client && \
-    npm run build:server
+RUN npm run build
+
+# Verifica se o arquivo existe
+RUN ls -la dist/server/index.js || exit 1
 
 # Estágio de produção
 FROM node:18-alpine AS production
