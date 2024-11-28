@@ -2,16 +2,17 @@
   "name": "damas-online",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch server/index.ts",
+    "dev:server": "ts-node -P server/tsconfig.json server/index.ts",
+    "build:client": "vite build",
+    "build:server": "rimraf dist/server && tsc -P server/tsconfig.json",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "tsc && vite build",
-    "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/index.js",
     "preview": "vite preview",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "postinstall": "npm run build:server"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -26,7 +27,6 @@
     "react-router-dom": "^6.22.3",
     "socket.io": "^4.7.4",
     "socket.io-client": "^4.7.4",
-    "tsx": "4.7.1",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
@@ -47,7 +47,12 @@
     "postcss": "^8.4.35",
     "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

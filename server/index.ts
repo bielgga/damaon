@@ -13,21 +13,17 @@ const PORT = process.env.PORT || 3001;
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+  console.log(`${req.method} ${req.path}`);
   next();
 });
 
-// Basic route para verificar se o servidor está rodando
-app.get('/', (_req, res) => {
-  res.send('Server is running');
+// Healthcheck endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Healthcheck endpoint
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString()
-  });
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
 });
 
 // CORS configuration
@@ -153,33 +149,26 @@ io.on('connection', (socket) => {
   });
 });
 
-// Inicia o servidor
-const server = httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`CORS configurado para: ${FRONTEND_URL}`);
   console.log(`Ambiente: ${process.env.NODE_ENV}`);
 });
 
 // Error handling
-server.on('error', (error) => {
-  console.error('Server error:', error);
+httpServer.on('error', (error) => {
+  console.error('Erro no servidor HTTP:', error);
 });
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-});
-
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error);
+io.on('connect_error', (error) => {
+  console.error('Erro de conexão Socket.IO:', error);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM recebido. Iniciando shutdown graceful...');
-  server.close(() => {
+  httpServer.close(() => {
     console.log('Servidor HTTP fechado.');
     process.exit(0);
   });
 });
-
-export default app;
