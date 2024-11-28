@@ -2,17 +2,20 @@
     "compilerOptions": {
       "target": "ES2020",
       "module": "CommonJS",
-      "moduleResolution": "node",
+      "moduleResolution": "Node",
       "esModuleInterop": true,
-      "forceConsistentCasingInFileNames": true,
       "strict": true,
       "skipLibCheck": true,
-      "outDir": "dist",
+      "outDir": "dist/server",
       "rootDir": ".",
       "baseUrl": ".",
       "paths": {
-        "@shared/*": ["shared/*"],
-        "@server/*": ["server/*"]
+        "@shared/*": ["shared/*"]
+      }
+    },
+    "ts-node": {
+      "compilerOptions": {
+        "module": "CommonJS"
       }
     },
     "include": [

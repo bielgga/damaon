@@ -2,41 +2,55 @@ import { create } from 'zustand';
 import { GameState, Piece, PlayerColor, Position, GameMode, Difficulty, Room, RoomPlayer } from '../types/game';
 import { getValidMoves, initializeBoard, makeMove } from '../utils/gameLogic';
 import { calculateBestMove } from '../utils/ai';
+import { useNotifications } from '../components/Notifications';
 
 interface GameStore extends GameState {
+  // Métodos de Inicialização
   initGame: (mode: GameMode, difficulty?: Difficulty) => void;
+  resetGame: () => void;
+  goBack: () => void;
+
+  // Métodos de Jogo
   selectPiece: (pieceId: string | null) => void;
   movePiece: (from: Position, to: Position) => void;
-  resetGame: () => void;
+  setCurrentPlayer: (player: PlayerColor) => void;
+  handleGameOver: (data: { winner: PlayerColor; reason: string }) => void;
+
+  // Métodos de UI
   showGameSelection: boolean;
   setShowGameSelection: (show: boolean) => void;
-  goBack: () => void;
-  roomId: string | null;
-  isHost: boolean;
-  guestName: string | null;
-  isWaitingPlayer: boolean;
-  opponent: {
-    name: string | null;
-    avatar: string | null;
-  };
-  
+
+  // Métodos de Sala Online
   createRoom: () => void;
   joinRoom: (roomId: string, name: string) => void;
   leaveRoom: () => void;
   setGuestName: (name: string) => void;
-  availableRooms: Room[];
-  playerName: string | null;
-  
+  setPlayerName: (name: string) => void;
   setAvailableRooms: (rooms: Room[]) => void;
   setRoomData: (roomData: Room) => void;
   addPlayer: (player: RoomPlayer) => void;
-  startGame: (gameData: any) => void;
-  handleOpponentMove: (moveData: any) => void;
-  setPlayerName: (name: string) => void;
   handlePlayerDisconnect: (playerId: string) => void;
+  startGame: (gameData: any) => void;
+  handleOpponentMove: (moveData: { from: Position; to: Position }) => void;
+  surrender: () => void;
+  requestRematch: () => void;
+
+  // Estado do Jogo Online
+  roomId: string | null;
+  isHost: boolean;
+  guestName: string | null;
+  isWaitingPlayer: boolean;
+  playerName: string | null;
+  availableRooms: Room[];
+  currentRoom: Room | null;
+  opponent: {
+    name: string | null;
+    avatar: string | null;
+  };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
+  // Estado Inicial
   pieces: [],
   currentPlayer: 'red',
   selectedPiece: null,
@@ -49,7 +63,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   difficulty: null,
   showGameSelection: false,
   currentRoom: null,
-  setShowGameSelection: (show: boolean) => set({ showGameSelection: show }),
   roomId: null,
   isHost: false,
   guestName: null,
@@ -61,6 +74,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   availableRooms: [],
   playerName: null,
 
+  // Métodos de Inicialização
   initGame: (mode: GameMode, difficulty?: Difficulty) => {
     set({
       pieces: initializeBoard(),
@@ -77,114 +91,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  selectPiece: (pieceId: string | null) => {
-    const { pieces, currentPlayer, gameMode } = get();
-    if (gameMode === 'single' && currentPlayer === 'black') return;
-
-    if (!pieceId) {
-      set({ selectedPiece: null, validMoves: [] });
-      return;
-    }
-
-    const piece = pieces.find((p) => p.id === pieceId);
-    if (!piece || piece.player !== currentPlayer) return;
-
-    const validMoves = getValidMoves(piece, pieces);
-    set({ selectedPiece: pieceId, validMoves });
-  },
-
-  movePiece: (from: Position, to: Position) => {
-    const { pieces, currentPlayer, gameMode, difficulty } = get();
-    const result = makeMove(pieces, from, to, currentPlayer);
-    
-    if (!result) return;
-
-    const { newPieces, captured, turnEnds } = result;
-    
-    if (captured) {
-      const currentScores = get().scores;
-      set({
-        scores: {
-          ...currentScores,
-          [currentPlayer]: currentScores[currentPlayer] + 1
-        }
-      });
-    }
-    
-    if (turnEnds) {
-      const nextPlayer = currentPlayer === 'red' ? 'black' : 'red';
-      const hasValidMoves = newPieces.some(
-        (p) => p.player === nextPlayer && getValidMoves(p, newPieces).length > 0
-      );
-
-      if (!hasValidMoves) {
-        set({
-          pieces: newPieces,
-          currentPlayer: nextPlayer,
-          selectedPiece: null,
-          validMoves: [],
-          gameOver: true,
-          winner: currentPlayer,
-        });
-        return;
-      }
-
-      set({
-        pieces: newPieces,
-        currentPlayer: nextPlayer,
-        selectedPiece: null,
-        validMoves: [],
-      });
-
-      // AI move in single player mode
-      if (gameMode === 'single' && nextPlayer === 'black' && difficulty) {
-        setTimeout(() => {
-          const state = get();
-          if (state.currentPlayer === 'black' && !state.gameOver) {
-            const bestMove = calculateBestMove(state.pieces, difficulty);
-            if (bestMove) {
-              get().movePiece(bestMove.from, bestMove.to);
-            }
-          }
-        }, 500);
-      }
-    } else {
-      // Continue capture sequence
-      set({
-        pieces: newPieces,
-        selectedPiece: null,
-        validMoves: [],
-      });
-
-      // Se é a vez da IA e há mais capturas, continua automaticamente
-      if (gameMode === 'single' && currentPlayer === 'black' && difficulty) {
-        setTimeout(() => {
-          const state = get();
-          const capturingPiece = state.pieces.find(p => 
-            p.position.row === to.row && 
-            p.position.col === to.col && 
-            p.mustContinueCapture
-          );
-          
-          if (capturingPiece) {
-            const validMoves = getValidMoves(capturingPiece, state.pieces);
-            if (validMoves.length > 0) {
-              get().movePiece(capturingPiece.position, validMoves[0]);
-            }
-          }
-        }, 500);
-      }
-    }
-  },
-
   resetGame: () => {
     const { gameMode, difficulty } = get();
     get().initGame(gameMode!, difficulty || undefined);
   },
 
   goBack: () => {
-    const { gameMode } = get();
-    if (gameMode) {
+    const { gameMode, currentRoom } = get();
+    if (currentRoom) {
+      // Se estiver em uma sala, sai dela
+      get().leaveRoom();
+    } else if (gameMode) {
       // Se estiver em um jogo, volta para a seleção de modo
       set({
         gameMode: null,
@@ -203,6 +120,95 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
+  // Métodos de Jogo
+  selectPiece: (pieceId: string | null) => {
+    const { pieces, currentPlayer, currentRoom, playerName } = get();
+    
+    // Verifica se é a vez do jogador em modo online
+    if (currentRoom) {
+      const player = currentRoom.players.find(p => p.name === playerName);
+      if (!player || player.color !== currentPlayer) {
+        useNotifications().addNotification('error', 'Não é sua vez!');
+        return;
+      }
+    }
+
+    if (!pieceId) {
+      set({ selectedPiece: null, validMoves: [] });
+      return;
+    }
+
+    const piece = pieces.find(p => p.id === pieceId);
+    if (!piece || piece.player !== currentPlayer) {
+      set({ selectedPiece: null, validMoves: [] });
+      return;
+    }
+
+    const validMoves = getValidMoves(piece, pieces);
+    set({ selectedPiece: pieceId, validMoves });
+  },
+
+  movePiece: (from: Position, to: Position) => {
+    const { pieces, currentPlayer, currentRoom, playerName, gameMode } = get();
+    
+    // Verifica se é a vez do jogador em modo online
+    if (gameMode === 'online' && currentRoom) {
+      const player = currentRoom.players.find(p => p.name === playerName);
+      if (!player || player.color !== currentPlayer) {
+        return; // Não permite mover se não for sua vez
+      }
+    }
+
+    const result = makeMove(pieces, from, to, currentPlayer);
+    if (!result) return;
+
+    const { newPieces, captured, isKinged } = result;
+
+    set({
+      pieces: newPieces,
+      currentPlayer: captured ? (isKinged ? currentPlayer : (currentPlayer === 'red' ? 'black' : 'red')) : (currentPlayer === 'red' ? 'black' : 'red'),
+      selectedPiece: null,
+      validMoves: [],
+      scores: {
+        ...get().scores,
+        [currentPlayer]: get().scores[currentPlayer] + (captured ? 1 : 0)
+      }
+    });
+
+    // Verifica condições de vitória
+    const remainingPieces = {
+      red: newPieces.filter(p => p.player === 'red').length,
+      black: newPieces.filter(p => p.player === 'black').length
+    };
+
+    if (remainingPieces.red === 0 || remainingPieces.black === 0) {
+      const winner = remainingPieces.red === 0 ? 'black' : 'red';
+      set({ gameOver: true, winner });
+      useNotifications().addNotification('success', `Jogo finalizado! ${winner === 'red' ? 'Vermelho' : 'Preto'} venceu!`);
+    }
+  },
+
+  // Métodos de UI
+  setShowGameSelection: (show: boolean) => set({ showGameSelection: show }),
+
+  // Métodos de Estado do Jogo
+  setCurrentPlayer: (player: PlayerColor) => set({ currentPlayer: player }),
+
+  handleGameOver: (data) => {
+    set({ 
+      gameOver: true, 
+      winner: data.winner,
+      currentRoom: data.reason === 'surrender' 
+        ? { ...get().currentRoom!, status: 'finished' } 
+        : get().currentRoom
+    });
+    useNotifications().addNotification(
+      'info', 
+      `Jogo finalizado! ${data.winner === 'red' ? 'Vermelho' : 'Preto'} venceu por ${data.reason}!`
+    );
+  },
+
+  // Métodos de Sala Online
   createRoom: () => {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     set({ 
@@ -240,12 +246,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ guestName: name });
   },
 
-  setAvailableRooms: (rooms) => set({ availableRooms: rooms }),
-  
-  setRoomData: (roomData: Room) => set({ 
-    currentRoom: roomData,
-    gameMode: 'online'
-  }),
+  setAvailableRooms: (rooms: Room[]) => {
+    console.log('Atualizando lista de salas:', rooms);
+    set({ availableRooms: rooms });
+  },
+
+  setRoomData: (roomData: Room) => {
+    console.log('Atualizando dados da sala:', roomData);
+    set({ 
+      currentRoom: roomData,
+      gameMode: 'online',
+      isWaitingPlayer: roomData.status === 'waiting'
+    });
+  },
 
   addPlayer: (player: RoomPlayer) => {
     const currentRoom = get().currentRoom;
@@ -274,7 +287,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setPlayerName: (name) => set({ playerName: name }),
 
-  handlePlayerDisconnect: (playerId) => {
-    // Lógica para lidar com desconexão do jogador
+  handlePlayerDisconnect: (playerId: string) => {
+    const currentRoom = get().currentRoom;
+    if (currentRoom) {
+      const updatedPlayers = currentRoom.players.filter(p => p.id !== playerId);
+      set({
+        currentRoom: {
+          ...currentRoom,
+          players: updatedPlayers,
+          status: 'waiting'
+        },
+        isWaitingPlayer: true
+      });
+    }
+  },
+
+  surrender: () => {
+    const { currentRoom, playerName } = get();
+    if (currentRoom) {
+      const player = currentRoom.players.find(p => p.name === playerName);
+      if (player) {
+        const updatedPlayers = currentRoom.players.filter(p => p.id !== player.id);
+        set({
+          currentRoom: {
+            ...currentRoom,
+            players: updatedPlayers,
+            status: 'finished'
+          },
+          isWaitingPlayer: true
+        });
+      }
+    }
+  },
+
+  requestRematch: () => {
+    const { currentRoom, playerName } = get();
+    if (currentRoom) {
+      const player = currentRoom.players.find(p => p.name === playerName);
+      if (player) {
+        const updatedPlayers = currentRoom.players.filter(p => p.id !== player.id);
+        set({
+          currentRoom: {
+            ...currentRoom,
+            players: updatedPlayers,
+            status: 'waiting'
+          },
+          isWaitingPlayer: true
+        });
+      }
+    }
   },
 }));

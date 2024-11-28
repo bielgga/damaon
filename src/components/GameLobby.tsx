@@ -3,27 +3,83 @@ import { useGameStore } from '../store/gameStore';
 import { Users, Trophy, Clock, Crown, Search, Plus, ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { socketService } from '../services/socket';
-import { Room } from '../shared/types';
+import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '../components/Notifications';
+
+interface RoomCardProps {
+  room: {
+    id: string;
+    name: string;
+    players: Array<{
+      id: string;
+      name: string;
+      color: 'red' | 'black';
+    }>;
+    status: 'waiting' | 'playing' | 'finished';
+  };
+  onJoin: (roomId: string) => void;
+}
 
 export default function GameLobby() {
-  const { availableRooms, playerName, setPlayerName, goBack } = useGameStore();
+  const navigate = useNavigate();
+  const { availableRooms, playerName } = useGameStore();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'waiting' | 'playing'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'players'>('recent');
+  const [isCreating, setIsCreating] = useState(false);
+  const notifications = useNotifications();
 
   useEffect(() => {
+    if (!playerName) {
+      navigate('/');
+      return;
+    }
+
+    console.log('Conectando ao servidor...');
     socketService.connect();
-    return () => socketService.disconnect();
-  }, []);
+    
+    // Solicita lista de salas inicial
+    socketService.getRooms();
+
+    // Polling para atualizar lista de salas
+    const interval = setInterval(() => {
+      if (socketService) {
+        socketService.getRooms();
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [playerName, navigate]);
 
   const handleCreateRoom = () => {
-    if (!playerName) return;
-    socketService.createRoom(playerName);
+    if (!playerName) {
+      notifications.addNotification('error', 'Você precisa definir um nome primeiro');
+      navigate('/');
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      console.log('Criando sala para:', playerName);
+      socketService.createRoom(playerName);
+    } catch (error) {
+      console.error('Erro ao criar sala:', error);
+      notifications.addNotification('error', 'Erro ao criar sala');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleJoinRoom = (roomId: string) => {
     if (!playerName) return;
     socketService.joinRoom(roomId, playerName);
+    navigate(`/sala/${roomId}`);
+  };
+
+  const goBack = () => {
+    navigate('/');
   };
 
   const filteredRooms = availableRooms
@@ -94,10 +150,18 @@ export default function GameLobby() {
 
           <button
             onClick={handleCreateRoom}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+            disabled={isCreating}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 
+                       disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
           >
-            <Plus className="w-5 h-5" />
-            Criar Sala
+            {isCreating ? (
+              <>Criando sala...</>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                Criar Sala
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -156,11 +220,6 @@ export default function GameLobby() {
       </div>
     </div>
   );
-}
-
-interface RoomCardProps {
-  room: Room;
-  onJoin: (roomId: string) => void;
 }
 
 function RoomCard({ room, onJoin }: RoomCardProps) {

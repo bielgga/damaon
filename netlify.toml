@@ -9,7 +9,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  VITE_SOCKET_URL = "https://web-production-4161.up.railway.app"
+  VITE_SOCKET_URL = "https://seu-app.railway.app"
 
 [build.processing]
   skip_processing = false

@@ -1,5 +1,8 @@
 export type PlayerColor = 'black' | 'red';
 export type PieceType = 'normal' | 'king' | 'superKing';
+export type GameMode = 'single' | 'two-player' | 'online';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Player = PlayerColor;
 
 export interface Position {
   row: number;
@@ -17,14 +20,7 @@ export interface Room {
   name: string;
   players: RoomPlayer[];
   status: 'waiting' | 'playing' | 'finished';
-  gameData?: {
-    pieces: any[];
-    currentPlayer: PlayerColor;
-    scores: {
-      red: number;
-      black: number;
-    };
-  };
+  gameData?: GameData;
 }
 
 export interface Piece {
@@ -33,4 +29,10 @@ export interface Piece {
   type: PieceType;
   position: Position;
   mustContinueCapture?: boolean;
+}
+
+export interface GameData {
+  pieces: Piece[];
+  currentPlayer: PlayerColor;
+  scores: Record<PlayerColor, number>;
 } 

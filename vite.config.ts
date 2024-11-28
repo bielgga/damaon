@@ -14,5 +14,14 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', '@dnd-kit/core', '@dnd-kit/utilities']
+  },
+  server: {
+    port: 3000,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        ws: true
+      }
+    }
   }
 });

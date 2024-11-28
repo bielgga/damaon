@@ -3,17 +3,18 @@ import { useGameStore } from '../store/gameStore';
 import Square from './Square';
 import Piece from './Piece';
 import { motion } from 'framer-motion';
-import { RoomPlayer } from '../types/game';
+import { useParams } from 'react-router-dom';
+import { socketService } from '../services/socket';
+import { Position, Room } from '../types/game';
 
 export default function Board() {
-  const { pieces, validMoves, selectedPiece, selectPiece, movePiece, currentRoom } = useGameStore();
+  const { roomId } = useParams();
+  const { pieces, validMoves, selectedPiece, selectPiece, movePiece, currentRoom, playerName } = useGameStore();
   const { setNodeRef } = useDroppable({ id: 'board' });
 
-  const getPlayerByColor = (color: 'red' | 'black'): RoomPlayer | undefined => {
-    return currentRoom?.players.find(p => p.color === color);
-  };
-
   const handleSquareClick = (row: number, col: number) => {
+    if (!isPlayerTurn()) return;
+
     const piece = pieces.find(p => p.position.row === row && p.position.col === col);
     
     if (piece) {
@@ -24,9 +25,31 @@ export default function Board() {
     if (selectedPiece && validMoves.some(move => move.row === row && move.col === col)) {
       const selectedPieceObj = pieces.find(p => p.id === selectedPiece);
       if (selectedPieceObj) {
-        movePiece(selectedPieceObj.position, { row, col });
+        const from: Position = selectedPieceObj.position;
+        const to: Position = { row, col };
+
+        if (currentRoom && roomId) {
+          // Envia o movimento para o servidor
+          socketService.makeMove(roomId, from, to);
+        }
+        
+        // Atualiza o estado local
+        movePiece(from, to);
       }
     }
+  };
+
+  // Verifica se é a vez do jogador atual
+  const isPlayerTurn = () => {
+    if (!currentRoom || !playerName) return false;
+    const player = currentRoom.players.find(p => p.name === playerName);
+    if (!player || !currentRoom.gameData) return false;
+    return player.color === currentRoom.gameData.currentPlayer;
+  };
+
+  const getPlayerName = (color: 'red' | 'black') => {
+    const player = currentRoom?.players.find(p => p.color === color);
+    return player?.name || 'Aguardando jogador...';
   };
 
   return (
@@ -40,13 +63,11 @@ export default function Board() {
         >
           <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center">
             <span className="text-3xl font-bold">
-              {getPlayerByColor('red')?.name[0].toUpperCase() || '?'}
+              {getPlayerName('red')[0]?.toUpperCase() || '?'}
             </span>
           </div>
           <div className="text-center">
-            <p className="font-medium">
-              {getPlayerByColor('red')?.name || 'Aguardando jogador...'}
-            </p>
+            <p className="font-medium">{getPlayerName('red')}</p>
             <p className="text-sm text-red-400">Vermelho</p>
           </div>
         </motion.div>
@@ -85,13 +106,11 @@ export default function Board() {
         >
           <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center">
             <span className="text-3xl font-bold">
-              {getPlayerByColor('black')?.name[0].toUpperCase() || '?'}
+              {getPlayerName('black')[0]?.toUpperCase() || '?'}
             </span>
           </div>
           <div className="text-center">
-            <p className="font-medium">
-              {getPlayerByColor('black')?.name || 'Aguardando jogador...'}
-            </p>
+            <p className="font-medium">{getPlayerName('black')}</p>
             <p className="text-sm text-gray-400">Preto</p>
           </div>
         </motion.div>

@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { RotateCcw, Circle } from 'lucide-react';
-import { Player } from '../types/game';
+import { PlayerColor } from '../types/game';
 import { useGameStore } from '../store/gameStore';
 
 export default function GameStatus() {
   const { currentPlayer, scores, gameOver, winner, resetGame } = useGameStore();
 
-  const PlayerAvatar = ({ player }: { player: Player }) => (
+  const PlayerAvatar = ({ player }: { player: PlayerColor }) => (
     <div className={`flex flex-col items-center gap-2 ${
       player === currentPlayer ? 'opacity-100 scale-110' : 'opacity-50 scale-100'
     } transition-all duration-300`}

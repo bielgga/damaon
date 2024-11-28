@@ -3,22 +3,18 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Piece, Room, RoomPlayer } from '../shared/types';
+import { Room } from '../shared/types';
 
 dotenv.config();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://dama-online.netlify.app";
-
 const app = express();
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
 app.use(cors({
   origin: FRONTEND_URL,
   methods: ['GET', 'POST'],
   credentials: true
 }));
-
-app.get('/', (_req, res) => {
-  res.send('Server is running');
-});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -29,136 +25,110 @@ const io = new Server(httpServer, {
   }
 });
 
+// Armazenamento em memória
 const rooms = new Map<string, Room>();
-
-// Função para inicializar o tabuleiro
-function initializeBoard(): Piece[] {
-  const pieces: Piece[] = [];
-  let id = 1;
-
-  // Função auxiliar para adicionar peças
-  const addPiece = (row: number, col: number, player: 'red' | 'black') => {
-    pieces.push({
-      id: `${player}-${id++}`,
-      player,
-      type: 'normal',
-      position: { row, col }
-    });
-  };
-
-  // Adiciona peças pretas (linhas 0-2)
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 8; col++) {
-      if ((row + col) % 2 === 1) {
-        addPiece(row, col, 'black');
-      }
-    }
-  }
-
-  // Adiciona peças vermelhas (linhas 5-7)
-  for (let row = 5; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      if ((row + col) % 2 === 1) {
-        addPiece(row, col, 'red');
-      }
-    }
-  }
-
-  return pieces;
-}
+const playerRooms = new Map<string, string>();
 
 io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
 
-  // Enviar salas disponíveis
   socket.on('getRooms', () => {
-    socket.emit('availableRooms', Array.from(rooms.values()));
+    console.log('Solicitação de lista de salas recebida');
+    const activeRooms = Array.from(rooms.values()).filter(room => 
+      room.players.length > 0 && room.status !== 'finished'
+    );
+    socket.emit('availableRooms', activeRooms);
   });
 
-  // Criar sala
   socket.on('createRoom', ({ playerName }) => {
-    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const room: Room = {
-      id: roomId,
-      name: `Sala de ${playerName}`,
-      players: [{
-        id: socket.id,
-        name: playerName,
-        color: 'red'
-      }],
-      status: 'waiting',
-      gameData: {
-        pieces: initializeBoard(),
-        currentPlayer: 'red',
-        scores: { red: 0, black: 0 }
-      }
-    };
+    try {
+      console.log('Criando sala para jogador:', playerName);
+      
+      // Verifica se o jogador já está em uma sala
+      const existingRoomId = Array.from(rooms.values()).find(
+        room => room.players.some(p => p.name === playerName)
+      )?.id;
 
-    rooms.set(roomId, room);
-    socket.join(roomId);
-    socket.emit('roomCreated', room);
-    io.emit('availableRooms', Array.from(rooms.values()));
+      if (existingRoomId) {
+        console.log('Jogador já está em uma sala:', existingRoomId);
+        socket.emit('error', { message: 'Você já está em uma sala' });
+        return;
+      }
+
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const room: Room = {
+        id: roomId,
+        name: `Sala de ${playerName}`,
+        players: [{
+          id: socket.id,
+          name: playerName,
+          color: 'red'
+        }],
+        status: 'waiting'
+      };
+
+      rooms.set(roomId, room);
+      playerRooms.set(socket.id, roomId);
+      
+      socket.join(roomId);
+      console.log('Sala criada com sucesso:', room);
+      
+      socket.emit('roomCreated', room);
+      io.emit('availableRooms', Array.from(rooms.values()));
+    } catch (error) {
+      console.error('Erro ao criar sala:', error);
+      socket.emit('error', { message: 'Erro ao criar sala' });
+    }
   });
 
-  // Entrar na sala
   socket.on('joinRoom', ({ roomId, playerName }) => {
-    const room = rooms.get(roomId);
-    if (room && room.players.length < 2) {
-      const newPlayer: RoomPlayer = {
+    try {
+      const room = rooms.get(roomId);
+      if (!room) {
+        socket.emit('error', { message: 'Sala não encontrada' });
+        return;
+      }
+
+      if (room.players.length >= 2) {
+        socket.emit('error', { message: 'Sala cheia' });
+        return;
+      }
+
+      room.players.push({
         id: socket.id,
         name: playerName,
         color: 'black'
-      };
+      });
 
-      room.players.push(newPlayer);
-      room.status = 'playing';
+      rooms.set(roomId, room);
+      playerRooms.set(socket.id, roomId);
       
       socket.join(roomId);
-      rooms.set(roomId, room);
       
       io.to(roomId).emit('roomJoined', room);
       io.emit('availableRooms', Array.from(rooms.values()));
-
-      // Iniciar o jogo
-      io.to(roomId).emit('gameStarted', room.gameData);
+    } catch (error) {
+      console.error('Erro ao entrar na sala:', error);
+      socket.emit('error', { message: 'Erro ao entrar na sala' });
     }
   });
 
-  // Realizar movimento
-  socket.on('makeMove', ({ roomId, from, to }) => {
-    const room = rooms.get(roomId);
-    if (room) {
-      const player = room.players.find(p => p.id === socket.id);
-      if (player && player.color === room.gameData?.currentPlayer) {
-        io.to(roomId).emit('moveMade', { from, to });
-        
-        // Atualizar o estado do jogo
-        if (room.gameData) {
-          room.gameData.currentPlayer = room.gameData.currentPlayer === 'red' ? 'black' : 'red';
-          rooms.set(roomId, room);
-        }
-      }
-    }
-  });
-
-  // Desconexão
   socket.on('disconnect', () => {
-    rooms.forEach((room, roomId) => {
-      const playerIndex = room.players.findIndex(p => p.id === socket.id);
-      if (playerIndex !== -1) {
-        // Notificar outros jogadores
-        io.to(roomId).emit('playerDisconnected', socket.id);
-        
-        room.players.splice(playerIndex, 1);
+    console.log('Cliente desconectado:', socket.id);
+    const roomId = playerRooms.get(socket.id);
+    if (roomId) {
+      const room = rooms.get(roomId);
+      if (room) {
+        room.players = room.players.filter(p => p.id !== socket.id);
         if (room.players.length === 0) {
           rooms.delete(roomId);
         } else {
-          room.status = 'waiting';
           rooms.set(roomId, room);
         }
+        io.emit('availableRooms', Array.from(rooms.values()));
       }
-    });
-    io.emit('availableRooms', Array.from(rooms.values()));
+      playerRooms.delete(socket.id);
+    }
   });
 });
 

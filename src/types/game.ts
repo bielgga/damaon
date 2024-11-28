@@ -14,11 +14,18 @@ export interface RoomPlayer {
   color: PlayerColor;
 }
 
+export interface GameData {
+  pieces: Piece[];
+  currentPlayer: PlayerColor;
+  scores: Record<PlayerColor, number>;
+}
+
 export interface Room {
   id: string;
   name: string;
   players: RoomPlayer[];
   status: 'waiting' | 'playing' | 'finished';
+  gameData?: GameData;
 }
 
 export interface Piece {

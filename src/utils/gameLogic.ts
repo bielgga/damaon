@@ -1,9 +1,9 @@
-import { Piece, PieceType, Player, Position } from '../types/game';
+import { Piece, PlayerColor, Position } from '../types/game';
 import { getBasicMoves, getCaptureMoves, hasAdditionalCaptures } from './moveValidation';
 
 export function initializeBoard(): Piece[] {
   const pieces: Piece[] = [];
-  const setupRows = (player: Player, startRow: number, direction: number) => {
+  const setupRows = (player: PlayerColor, startRow: number, direction: number) => {
     for (let row = startRow; row !== startRow + 3 * direction; row += direction) {
       for (let col = 0; col < 8; col++) {
         if ((row + col) % 2 === 1) {
@@ -46,8 +46,8 @@ export function makeMove(
   pieces: Piece[],
   from: Position,
   to: Position,
-  currentPlayer: Player
-): { newPieces: Piece[], captured: boolean, turnEnds: boolean } | null {
+  currentPlayer: PlayerColor
+): { newPieces: Piece[]; captured: boolean; turnEnds: boolean; isKinged?: boolean } | null {
   const piece = pieces.find(p => p.position.row === from.row && p.position.col === from.col);
   if (!piece || piece.player !== currentPlayer) return null;
 
@@ -112,6 +112,7 @@ export function makeMove(
   return { 
     newPieces, 
     captured: isCapture,
-    turnEnds: !updatedPiece.mustContinueCapture
+    turnEnds: !updatedPiece.mustContinueCapture,
+    isKinged: newType !== piece.type
   };
 }

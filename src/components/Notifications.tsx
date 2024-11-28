@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle, Info, X } from 'lucide-react';
 
 export interface Notification {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
 
