@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build:server"
+buildCommand = "npm install && tsc -p tsconfig.server.json"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node dist/server/index.js"
 restartPolicy = "always"
 
 [deploy.envs]
